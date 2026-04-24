@@ -1,0 +1,55 @@
+name: Feature request
+description: Propose a change. Roadmap-aligned features land fastest.
+labels: [enhancement]
+title: "[feat] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Roadmap-aligned features land fastest. See README roadmap before filing.
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: The use case
+      description: What are you trying to do, and why doesn't the existing tool do it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-shape
+    attributes:
+      label: Proposed shape
+      description: CLI command, MCP tool, config change, frontmatter field, etc. Be concrete.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: What else did you try or think about?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: roadmap-alignment
+    attributes:
+      label: Roadmap alignment
+      description: Where does this fit?
+      options:
+        - v0.2 (embeddings, patterns, decay)
+        - v0.3 (Obsidian, graph viz)
+        - off-roadmap — I want to propose it anyway
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: before-submitting
+    attributes:
+      label: Before submitting
+      options:
+        - label: I read the roadmap in README.md
+          required: true
+        - label: I checked existing issues
+          required: true

@@ -1,17 +1,35 @@
 [project]
 name = "all41n14lla"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Portable memory for AI agents. Markdown on your disk. Speaks MCP."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Jordan Truong", email = "emailme@jordantruong.com" }]
 requires-python = ">=3.11"
+keywords = [
+  "mcp",
+  "model-context-protocol",
+  "ai-agents",
+  "memory",
+  "markdown",
+  "sqlite",
+  "fts5",
+  "obsidian",
+  "claude",
+  "cursor",
+  "local-first",
+  "portable-memory",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Text Processing :: Markup :: Markdown",
+  "Operating System :: OS Independent",
 ]
 dependencies = [
   "mcp>=0.9.0",

@@ -2,7 +2,12 @@
 
 Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 
-> **Status:** `v0.1.0a1` (alpha). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, watchdog reconciliation. 16/16 tests passing. A short demo video lands with v0.1.0 (non-alpha) after a 24-hour bake. Expect rough edges until then.
+[![Tests](https://github.com/bludragon-ai/all41n14lla/actions/workflows/test.yml/badge.svg)](https://github.com/bludragon-ai/all41n14lla/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
+[![Python](https://img.shields.io/pypi/pyversions/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+> **Status:** `v0.1.0a2` (alpha). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, pathways edge auto-increment on episode writes. 26/26 tests passing on Python 3.13; CI matrix validates 3.11 / 3.12 / 3.13. A short demo video lands with v0.1.0 (non-alpha) after a 24-hour bake. Expect rough edges until then.
 
 ## The problem
 

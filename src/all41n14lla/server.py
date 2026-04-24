@@ -95,6 +95,8 @@ def remember(
     node.write(file_path)
     with Storage(default_db_path(vault)) as storage:
         storage.upsert_node(node)
+        if nt is NodeType.EPISODE and node.links:
+            storage.increment_edges(list(node.links))
     return {"id": node.id, "type": nt.value, "path": str(file_path)}
 
 
@@ -243,8 +245,22 @@ def consolidate() -> dict:
 
 
 def main() -> None:
-    """Entry point for ``all41n14lla serve``."""
-    mcp.run()
+    """Entry point for ``all41n14lla serve``.
+
+    Starts a watchdog observer on the vault (if it exists) so hand-edits to
+    markdown files land in the SQLite index live, then runs the MCP stdio
+    server. Observer is stopped cleanly on shutdown.
+    """
+    from all41n14lla.watcher import start_observer
+
+    vault = _vault_path()
+    observer = start_observer(vault) if vault.exists() else None
+    try:
+        mcp.run()
+    finally:
+        if observer is not None:
+            observer.stop()
+            observer.join(timeout=5)
 
 
 if __name__ == "__main__":

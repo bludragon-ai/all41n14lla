@@ -1,0 +1,81 @@
+name: Bug report
+description: Something broke. File a reproducible report.
+labels: [bug]
+title: "[bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. Please fill in what you saw and how to reproduce.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe? Include error messages verbatim.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What I expected
+      description: What should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal repro
+      description: The shortest sequence of commands that reproduces the bug.
+      placeholder: |
+        all41n14lla init
+        all41n14lla remember concept "example concept body"
+        all41n14lla recall "example"
+      render: bash
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: all41n14lla version
+      placeholder: e.g. 0.1.0a1
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: e.g. 3.13.13
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: e.g. macOS 14.5 arm64
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `all41n14lla doctor`
+      description: Paste the full output if relevant.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: before-submitting
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues
+          required: true
+        - label: I read CONTRIBUTING.md
+          required: true

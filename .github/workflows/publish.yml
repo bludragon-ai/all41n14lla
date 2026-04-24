@@ -1,0 +1,40 @@
+# Publishes the package to PyPI on tag pushes matching v*.
+#
+# Requires trusted publisher configured at
+# https://pypi.org/manage/account/publishing/ with:
+#   owner=bludragon-ai, repo=all41n14lla, workflow=publish.yml, environment=pypi.
+# Until configured, this workflow will fail on the publish step.
+
+name: "Publish to PyPI"
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish-to-pypi:
+    name: "Build and publish to PyPI"
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tool
+        run: pip install build
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

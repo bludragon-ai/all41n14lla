@@ -18,6 +18,7 @@ never block writers. The class is a context manager; open it, do work, close it.
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -169,6 +170,40 @@ class Storage:
         for sid in stale_ids:
             self.delete_node(sid)
         return indexed, len(stale_ids)
+
+    def increment_edges(self, node_ids: list[str]) -> int:
+        """Increment pairwise edge weights for a list of co-occurring node ids.
+
+        Pairs are stored in canonical order (smaller id first) so that a given
+        pair of ids always maps to a single row. Called by ``remember episode``
+        when the episode's ``links`` field names related nodes — the edges
+        table accumulates the co-occurrence signal the ``consolidate`` pass
+        will promote into patterns in v0.2.
+
+        Returns the number of pair updates written.
+        """
+        unique_ids = list(dict.fromkeys(node_ids))
+        if len(unique_ids) < 2:
+            return 0
+        now = datetime.now(timezone.utc).isoformat()
+        pairs = [
+            (min(a, b), max(a, b))
+            for i, a in enumerate(unique_ids)
+            for b in unique_ids[i + 1:]
+        ]
+        for src, dst in pairs:
+            self.conn.execute(
+                """
+                INSERT INTO edges (src_id, dst_id, weight, updated)
+                VALUES (?, ?, 1.0, ?)
+                ON CONFLICT(src_id, dst_id) DO UPDATE SET
+                    weight = weight + 1.0,
+                    updated = excluded.updated
+                """,
+                (src, dst, now),
+            )
+        self.conn.commit()
+        return len(pairs)
 
 
 def default_db_path(vault_path: Path) -> Path:

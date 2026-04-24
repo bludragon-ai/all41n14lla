@@ -161,6 +161,8 @@ def remember(
 
     with Storage(default_db_path(vault)) as storage:
         storage.upsert_node(node)
+        if nt is NodeType.EPISODE and link_list:
+            storage.increment_edges(link_list)
 
     console.print(
         f"[green]✓ Remembered[/green] {nt.value}/{node.id[:8]} — {file_path}"
@@ -237,9 +239,61 @@ def forget(
 
 
 @app.command()
-def inspect(query: str) -> None:
-    """Show nodes, edges, neighbors. (Stub — full impl in v0.1 final.)"""
-    console.print(f"[yellow]STUB[/yellow]: inspect '{query}' — coming in v0.1 final")
+def inspect(
+    query_or_id: str = typer.Argument(..., help="Node id (full or prefix) or search phrase"),
+    vault: Path = _vault_option(),
+) -> None:
+    """Show a node's details plus its top co-occurrence neighbors."""
+    vault = _resolve_vault(vault)
+    with Storage(default_db_path(vault)) as storage:
+        rows = storage.conn.execute(
+            "SELECT id, path FROM nodes WHERE id LIKE ?", (f"{query_or_id}%",)
+        ).fetchall()
+
+        node: Optional[MemoryNode] = None
+        if len(rows) == 1:
+            target_path = Path(rows[0]["path"])
+            if target_path.exists():
+                node = MemoryNode.from_file(target_path)
+        else:
+            hits = fts_search(storage, query_or_id, limit=1)
+            if hits:
+                node, _ = hits[0]
+
+        if node is None:
+            console.print(f"[yellow]No match for '{query_or_id}'[/yellow]")
+            raise typer.Exit(1)
+
+        edges = storage.conn.execute(
+            """
+            SELECT dst_id AS neighbor_id, weight FROM edges WHERE src_id = ?
+            UNION
+            SELECT src_id AS neighbor_id, weight FROM edges WHERE dst_id = ?
+            ORDER BY weight DESC
+            LIMIT 10
+            """,
+            (node.id, node.id),
+        ).fetchall()
+
+    console.print(f"[bold cyan]{node.type.value}[/bold cyan] {node.id}")
+    if node.tags:
+        console.print(f"[dim]tags:[/dim] {', '.join(node.tags)}")
+    if node.links:
+        console.print(f"[dim]links:[/dim] {', '.join(l[:8] for l in node.links)}")
+    console.print()
+    console.print(node.content.strip())
+
+    if edges:
+        console.print()
+        table = Table(title="Neighbors (by edge weight)", show_lines=False)
+        table.add_column("weight", justify="right")
+        table.add_column("neighbor id")
+        for row in edges:
+            table.add_row(f"{float(row['weight']):.2f}", row["neighbor_id"][:8])
+        console.print(table)
+    else:
+        console.print()
+        console.print("[dim](no edges yet — write episodes with --links to build pathways)[/dim]")
 
 
 @app.command()
