@@ -1,0 +1,49 @@
+[project]
+name = "all41n14lla"
+version = "0.1.0"
+description = "Portable memory for AI agents. Markdown on your disk. Speaks MCP."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Jordan Truong", email = "emailme@jordantruong.com" }]
+requires-python = ">=3.11"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "mcp>=0.9.0",
+  "typer>=0.12.0",
+  "pyyaml>=6.0",
+  "python-frontmatter>=1.1.0",
+  "watchdog>=4.0.0",
+  "rich>=13.7.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
+
+[project.scripts]
+all41n14lla = "all41n14lla.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/bludragon-ai/all41n14lla"
+Repository = "https://github.com/bludragon-ai/all41n14lla"
+Issues = "https://github.com/bludragon-ai/all41n14lla/issues"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
