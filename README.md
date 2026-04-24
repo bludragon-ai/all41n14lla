@@ -2,10 +2,7 @@
 
 Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 
-> **Status:** `v0.1.0-alpha`. The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, watchdog reconciliation. The demo GIF below is a placeholder. PyPI release is pending — for now, install from source (see below). Expect rough edges.
-
-<!-- demo GIF recorded separately in Step 6, replace this once ffmpeg output lands -->
-![demo](docs/demo.gif)
+> **Status:** `v0.1.0a1` (alpha). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, watchdog reconciliation. 16/16 tests passing. A short demo video lands with v0.1.0 (non-alpha) after a 24-hour bake. Expect rough edges until then.
 
 ## The problem
 

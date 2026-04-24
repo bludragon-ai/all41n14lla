@@ -1,6 +1,6 @@
 [project]
 name = "all41n14lla"
-version = "0.1.0"
+version = "0.1.0a1"
 description = "Portable memory for AI agents. Markdown on your disk. Speaks MCP."
 readme = "README.md"
 license = { text = "MIT" }
