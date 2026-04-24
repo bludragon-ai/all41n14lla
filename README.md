@@ -113,6 +113,7 @@ No dates. Ships when it ships.
 - [Architecture](docs/architecture.md) — how the engine actually works. Storage, frontmatter schema, retrieval flow, pathways, MCP surface.
 - [Comparison](docs/comparison.md) — honest look at `all41n14lla` vs. Basic Memory, MemPalace, mem0, and the MCP reference server.
 - [Origin](ORIGIN.md) — where the name comes from.
+- [Quickstart — Claude Desktop](docs/quickstart-claude-desktop.md) — five-minute install-to-working guide for Claude Desktop users.
 
 ## License
 

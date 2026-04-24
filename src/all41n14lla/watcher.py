@@ -16,6 +16,7 @@ from typing import Optional
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
+from watchdog.observers.api import BaseObserver
 
 from all41n14lla.engine.nodes import MemoryNode
 from all41n14lla.engine.storage import NODE_FOLDERS, Storage, default_db_path
@@ -67,36 +68,37 @@ class VaultEventHandler(FileSystemEventHandler):
     def on_created(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
-        path = Path(event.src_path)
+        path = Path(str(event.src_path))
         if self._is_vault_node(path):
             self._upsert(path)
 
     def on_modified(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
-        path = Path(event.src_path)
+        path = Path(str(event.src_path))
         if self._is_vault_node(path):
             self._upsert(path)
 
     def on_deleted(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
-        path = Path(event.src_path)
+        path = Path(str(event.src_path))
         if self._is_vault_node(path):
             self._delete(path)
 
     def on_moved(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
-        src = Path(event.src_path)
-        dst = Path(getattr(event, "dest_path", str(src)))
+        src = Path(str(event.src_path))
+        dst_raw = getattr(event, "dest_path", event.src_path)
+        dst = Path(str(dst_raw))
         if self._is_vault_node(src):
             self._delete(src)
         if self._is_vault_node(dst):
             self._upsert(dst)
 
 
-def start_observer(vault: Path) -> Optional[Observer]:
+def start_observer(vault: Path) -> Optional[BaseObserver]:
     """Start a recursive observer on the vault. Returns the observer (or None
     if the vault does not exist).
 
@@ -107,7 +109,7 @@ def start_observer(vault: Path) -> Optional[Observer]:
     if not vault.exists():
         return None
     handler = VaultEventHandler(vault)
-    observer = Observer()
+    observer: BaseObserver = Observer()
     observer.schedule(handler, str(vault), recursive=True)
     observer.daemon = True
     observer.start()

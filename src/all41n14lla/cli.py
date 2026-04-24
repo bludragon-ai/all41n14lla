@@ -151,7 +151,7 @@ def remember(
 
     nt = _resolve_type(node_type)
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-    link_list = [l.strip() for l in links.split(",") if l.strip()]
+    link_list = [link.strip() for link in links.split(",") if link.strip()]
 
     node = MemoryNode(
         type=nt, content=content, tags=tag_list, links=link_list
@@ -279,7 +279,7 @@ def inspect(
     if node.tags:
         console.print(f"[dim]tags:[/dim] {', '.join(node.tags)}")
     if node.links:
-        console.print(f"[dim]links:[/dim] {', '.join(l[:8] for l in node.links)}")
+        console.print(f"[dim]links:[/dim] {', '.join(link[:8] for link in node.links)}")
     console.print()
     console.print(node.content.strip())
 

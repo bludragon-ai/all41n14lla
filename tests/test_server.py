@@ -6,12 +6,10 @@ verify tool functions are registered, callable, and touch the engine correctly.
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 
-from all41n14lla.engine.nodes import NodeType
 from all41n14lla.engine.storage import NODE_FOLDERS, default_db_path, Storage
 
 
