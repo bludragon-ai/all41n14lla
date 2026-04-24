@@ -104,6 +104,7 @@ No dates. Ships when it ships.
 ## Docs
 
 - [Why](docs/why.md) — the thesis: what is broken about agent memory and why this shape fixes it.
+- [Savant cognition as memory architecture](docs/savant-cognition.md) — the longer origin story. How a personal interest in typed, pattern-indexed, never-degrading memory became the shape of this project, grounded in a survey of 60+ existing agent-memory tools.
 - [Architecture](docs/architecture.md) — how the engine actually works. Storage, frontmatter schema, retrieval flow, pathways, MCP surface.
 - [Comparison](docs/comparison.md) — honest look at `all41n14lla` vs. Basic Memory, MemPalace, mem0, and the MCP reference server.
 - [Origin](ORIGIN.md) — where the name comes from.
