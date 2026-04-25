@@ -1,6 +1,6 @@
 [project]
 name = "all41n14lla"
-version = "0.1.0a2"
+version = "0.1.0"
 description = "Portable memory for AI agents. Markdown on your disk. Speaks MCP."
 readme = "README.md"
 license = { text = "MIT" }
@@ -38,6 +38,7 @@ dependencies = [
   "python-frontmatter>=1.1.0",
   "watchdog>=4.0.0",
   "rich>=13.7.0",
+  "httpx>=0.27,<1",
 ]
 
 [project.optional-dependencies]

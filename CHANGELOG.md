@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No unreleased changes yet.
 
+## [0.1.0] - 2026-04-25
+
+First stable release. Drops the alpha tag — `pipx install all41n14lla` now works without the `--pre` flag.
+
+### Fixed
+- Pinned `httpx>=0.27,<1` in project dependencies. Without this pin, `pipx install --pip-args='--pre' all41n14lla` (the alpha install path) cascaded the `--pre` flag to every transitive dependency and pulled `httpx 1.0.dev3`, which removed `httpx.TransportError` from its top-level namespace and crashed `mcp` import via `httpx_sse`. Stable installs from `0.1.0` onward don't need `--pre`, but the pin also defends future alpha installs against the same trap.
+
+### Changed
+- Project graduates from alpha to stable. No API or behavior changes versus `0.1.0a2` other than the dependency pin above.
+
 ## [0.1.0a2] - 2026-04-24
 
 Integrity-fix alpha. Closes the watchdog + pathways gaps from `0.1.0a1` so the docs match the implementation exactly.
@@ -50,6 +60,7 @@ First public alpha. Shipped to PyPI and GitHub Releases.
 - No embeddings — retrieval is lexical only. Semantic recall lands in `v0.2`.
 - Tested on Python 3.13.13 on macOS arm64; other platforms via CI matrix as of `0.1.0a2`.
 
-[Unreleased]: https://github.com/bludragon-ai/all41n14lla/compare/v0.1.0a2...HEAD
+[Unreleased]: https://github.com/bludragon-ai/all41n14lla/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/bludragon-ai/all41n14lla/releases/tag/v0.1.0
 [0.1.0a2]: https://github.com/bludragon-ai/all41n14lla/releases/tag/v0.1.0a2
 [0.1.0a1]: https://github.com/bludragon-ai/all41n14lla/releases/tag/v0.1.0a1
