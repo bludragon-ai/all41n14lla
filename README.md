@@ -7,7 +7,7 @@ Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 [![Python](https://img.shields.io/pypi/pyversions/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Status:** `v0.1.0a2` (alpha). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, pathways edge auto-increment on episode writes. 26/26 tests passing on Python 3.13; CI matrix validates 3.11 / 3.12 / 3.13. A short demo video lands with v0.1.0 (non-alpha) after a 24-hour bake. Expect rough edges until then.
+> **Status:** `v0.1.0` (stable, on PyPI). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, pathways edge auto-increment on episode writes. 26/26 tests passing; CI matrix validates Python 3.11 / 3.12 / 3.13. Install from PyPI below.
 
 ## The problem
 
@@ -34,15 +34,15 @@ Retrieval is not one ranking function over one bucket. Concepts rank by match sc
 
 ## Install
 
-### From PyPI (coming soon)
+### From PyPI
 
 ```bash
 pipx install all41n14lla
 ```
 
-Not published yet. Install from source in the meantime.
+Verify: `all41n14lla version` (prints `0.1.0` or newer).
 
-### From source (works now)
+### From source
 
 ```bash
 git clone https://github.com/bludragon-ai/all41n14lla.git
@@ -63,9 +63,9 @@ all41n14lla recall "sqlite tokenizer"
 all41n14lla doctor                                 # verify environment + vault health
 ```
 
-The default vault is `~/.all41n14lla/` — a hidden per-user dotfile. Pass `--path ~/memory` (or any other path) if you prefer a visible vault, e.g. one you open in Obsidian.
+The default vault is `~/.all41n14lla/` — a hidden per-user dotfile. Pass `--path ~/memory` (or any other path) if you prefer a visible vault, e.g. one you open in Obsidian. Every CLI command also honors `ALL41N14LLA_VAULT`, so run `export ALL41N14LLA_VAULT=~/memory` once and you can drop `--vault` from each call — the MCP server reads the same variable, so the CLI and the server always agree.
 
-Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (stub in v0.1-alpha, full in v0.1 final), `consolidate` (stub, lands in v0.2), `version`, `serve`.
+Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (stub, lands in v0.2), `version`, `serve`.
 
 ## Claude Code / Claude Desktop / Cursor config
 

@@ -5,16 +5,16 @@ This is the minimum path to get `all41n14lla` working in Claude Desktop on macOS
 ## 1. Install the CLI
 
 ```bash
-pipx install --pip-args='--pre' all41n14lla
+pipx install all41n14lla
 ```
 
-The `--pre` flag tells `pipx` to install pre-release versions — `all41n14lla` is currently in alpha, so this is required. Once `v0.1.0` ships as a stable release, you can drop `--pre`.
+`all41n14lla` is on PyPI as a stable release, so no pre-release flag is needed.
 
 Verify the install:
 
 ```bash
 all41n14lla version
-# -> all41n14lla 0.1.0a2 (or newer)
+# -> all41n14lla 0.1.0 (or newer)
 ```
 
 ## 2. Create your vault

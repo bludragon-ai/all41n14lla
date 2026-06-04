@@ -1,6 +1,7 @@
 """all41n14lla CLI — Typer app."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -26,7 +27,19 @@ app = typer.Typer(
 )
 console = Console()
 
-DEFAULT_VAULT = Path.home() / ".all41n14lla"
+def _default_vault() -> Path:
+    """Default vault: ``$ALL41N14LLA_VAULT`` if set, else ``~/.all41n14lla/``.
+
+    Mirrors the MCP server's resolution (``server.py:_vault_path``) so the CLI
+    and the server agree on which vault they read when no ``--vault`` is passed.
+    Without this, ``doctor``/``recall``/etc. silently read the empty dotfile
+    even when the server is pointed at a real vault via the env var.
+    """
+    env = os.environ.get("ALL41N14LLA_VAULT")
+    return Path(env) if env else Path.home() / ".all41n14lla"
+
+
+DEFAULT_VAULT = _default_vault()
 REQUIRED_DEPS = ("mcp", "typer", "yaml", "frontmatter", "watchdog", "rich")
 
 
@@ -35,7 +48,7 @@ def _vault_option() -> Path:
         DEFAULT_VAULT,
         "--vault",
         "-v",
-        help="Vault directory. Default: ~/.all41n14lla/ (hidden).",
+        help="Vault directory. Defaults to $ALL41N14LLA_VAULT, else ~/.all41n14lla/.",
     )
 
 
