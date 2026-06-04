@@ -12,7 +12,7 @@ cd all41n14lla
 python3.13 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q        # should print 16 passed (or current count)
+pytest -q        # should print 26 passed (or current count)
 ```
 
 Python 3.11+ works; 3.13 is what I develop against.
