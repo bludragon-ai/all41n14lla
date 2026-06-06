@@ -35,7 +35,7 @@ def search(
             FROM nodes_fts
             JOIN nodes n ON n.id = nodes_fts.id
             WHERE nodes_fts MATCH ? AND n.type = ?
-            ORDER BY score ASC
+            ORDER BY score ASC, n.updated DESC
             LIMIT ?
         """
         params: tuple = (q, node_type.value, limit)
@@ -45,7 +45,7 @@ def search(
             FROM nodes_fts
             JOIN nodes n ON n.id = nodes_fts.id
             WHERE nodes_fts MATCH ?
-            ORDER BY score ASC
+            ORDER BY score ASC, n.updated DESC
             LIMIT ?
         """
         params = (q, limit)

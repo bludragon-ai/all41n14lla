@@ -47,7 +47,10 @@ EPISODE_HALF_LIFE_DAYS = 30.0  # strong decay — the 30-day half-life recipe
 PATTERN_HALF_LIFE_DAYS = 90.0  # moderate recency for playbooks
 PATTERN_RECENCY_FLOOR = 0.6   # patterns are dampened by age, never erased
 
-_TOKEN_RE = re.compile(r"[a-z0-9]{2,}")
+# Mirrors FTS5's unicode61-family tokenization: split on non-alphanumeric,
+# keep single-char tokens ("c++" → "c", "r" → "r") so short/symbol tags can
+# still trigger the floor exactly as the index sees them.
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 
 @dataclass
@@ -146,6 +149,13 @@ def _constraint_floor(
         if not path.exists():
             continue
         items.append((MemoryNode.from_file(path), -float(row["score"])))
+    # Within the floor, more overlapping tags = more relevant rule. Keeps the
+    # permissive any-overlap contract while stopping generic single-tag rules
+    # from dominating the top slots.
+    items.sort(
+        key=lambda pair: (_tag_overlap(pair[0], query_tokens), pair[1]),
+        reverse=True,
+    )
     overflow = len(items) > FLOOR_CAP
     return items[:FLOOR_CAP], overflow
 

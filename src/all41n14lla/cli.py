@@ -133,10 +133,18 @@ def _doctor_constraint_floor(storage: Storage) -> None:
     console.print(
         f"[green]✓[/green] constraint floor: ACTIVE ({len(constraints)} constraints indexed)"
     )
-    untagged = [c for c in constraints if not c.tags]
+    # judge tags through the SAME tokenizer the engine uses — a tag of pure
+    # symbols ("→", "++") is invisible to the floor even though frontmatter
+    # technically has tags
+    from all41n14lla.engine.retrieval import _tokenize
+
+    def _floor_visible(c: MemoryNode) -> bool:
+        return any(_tokenize(str(tag)) for tag in c.tags)
+
+    untagged = [c for c in constraints if not _floor_visible(c)]
     if untagged:
         console.print(
-            f"[yellow]⚠[/yellow] {len(untagged)} constraint(s) have NO tags — "
+            f"[yellow]⚠[/yellow] {len(untagged)} constraint(s) have no floor-visible tags — "
             "the floor is tag-scoped, so these can never be guaranteed-surfaced. "
             f"First: {untagged[0].id[:8]}"
         )

@@ -279,6 +279,50 @@ def test_type_scoped_recall_skips_floor(vault, storage):
     assert episode.id in [node.id for node, _ in outcome.results]
 
 
+def test_short_and_symbol_tags_trigger_floor(vault, storage):
+    """Tags like 'c++' or 'r' must trigger the floor exactly as FTS sees them."""
+    cpp_rule = _write(
+        vault,
+        storage,
+        MemoryNode(
+            type=NodeType.CONSTRAINT,
+            content="always compile with -Wall in this codebase",
+            tags=["c++", "compiler"],
+        ),
+    )
+    outcome = retrieve(storage, "how do I build the c++ target", limit=3)
+    assert cpp_rule.id in outcome.floor_ids, (
+        "single-char token from a symbol tag must still fire the floor"
+    )
+
+
+def test_floor_orders_by_overlap_count(vault, storage):
+    """Inside the floor, a rule overlapping 2 query terms beats a 1-term rule."""
+    generic = _write(
+        vault,
+        storage,
+        MemoryNode(
+            type=NodeType.CONSTRAINT,
+            content="generic deploy policy",
+            tags=["deploy"],
+        ),
+    )
+    specific = _write(
+        vault,
+        storage,
+        MemoryNode(
+            type=NodeType.CONSTRAINT,
+            content="never deploy a release on Fridays",
+            tags=["deploy", "release"],
+        ),
+    )
+    outcome = retrieve(storage, "deploy the release", limit=5)
+    ids = [node.id for node, _ in outcome.results]
+    assert ids.index(specific.id) < ids.index(generic.id), (
+        "more overlapping tags = higher floor slot"
+    )
+
+
 def test_mtime_fallback_for_missing_created(vault, storage):
     """A file whose frontmatter lacks `created` must not masquerade as fresh."""
     import os
