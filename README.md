@@ -90,13 +90,13 @@ Transport is stdio. One process, one client. The server exposes `remember`, `rec
 
 Every claim below was verified against the tool's current README or docs at the time of writing.
 
-| Tool                           | Markdown-native | Typed retrieval (4 node types) | User-owned local vault | Offline-first | MCP-native | Embeddings | License    |
-| ------------------------------ | --------------- | ------------------------------ | ---------------------- | ------------- | ---------- | ---------- | ---------- |
-| **all41n14lla**                | Yes             | Yes (concept/pattern/episode/constraint) | Yes          | Yes           | Yes        | No (v0.1)  | MIT        |
-| **Basic Memory**               | Yes             | Partial (observations + relations, not 4 fixed types) | Yes (local-first; optional paid cloud sync) | Yes | Yes | Yes (FastEmbed, hybrid FTS + vector) | AGPL-3.0 |
-| **MemPalace**                  | No (verbatim text + SQLite + ChromaDB) | Partial (wings/rooms/drawers hierarchy) | Yes | Yes       | Yes        | Yes (local, ChromaDB default) | MIT |
-| **mem0**                       | No (pluggable vector DB) | Partial (user/session/agent levels) | Only in library mode; cloud and self-hosted are the pitched paths | Library mode only | No (not MCP-native; LangGraph/CrewAI integrations) | Yes (OpenAI `text-embedding-3-small` default) | Apache-2.0 |
-| **MCP Memory (reference)**     | No (JSONL file) | No (user-defined entity types, no enforced taxonomy) | Yes (local JSONL) | Yes | Yes | No (text search only) | MIT |
+| Tool                           | Markdown-native | Typed retrieval (4 node types) | Deterministic constraint surfacing | User-owned local vault | Offline-first | MCP-native | Embeddings | License    |
+| ------------------------------ | --------------- | ------------------------------ | ---------------------------------- | ---------------------- | ------------- | ---------- | ---------- | ---------- |
+| **all41n14lla**                | Yes             | Yes (concept/pattern/episode/constraint) | **Yes** — measured 20/20 vs BM25's 1/20 ([benchmark](docs/comparison.md#benchmark--constraint-recall-under-noise)) | Yes          | Yes           | Yes        | No (deliberate)  | MIT        |
+| **Basic Memory**               | Yes             | Partial (observations + relations, not 4 fixed types) | No (ranked retrieval only) | Yes (local-first; optional paid cloud sync) | Yes | Yes | Yes (FastEmbed, hybrid FTS + vector) | AGPL-3.0 |
+| **MemPalace**                  | No (verbatim text + SQLite + ChromaDB) | Partial (wings/rooms/drawers hierarchy) | No (vector ranking) | Yes | Yes       | Yes        | Yes (local, ChromaDB default) | MIT |
+| **mem0**                       | No (pluggable vector DB) | Partial (user/session/agent levels) | No (similarity ranking) | Only in library mode; cloud and self-hosted are the pitched paths | Library mode only | No (not MCP-native; LangGraph/CrewAI integrations) | Yes (OpenAI `text-embedding-3-small` default) | Apache-2.0 |
+| **MCP Memory (reference)**     | No (JSONL file) | No (user-defined entity types, no enforced taxonomy) | No (text search) | Yes (local JSONL) | Yes | Yes | No (text search only) | MIT |
 
 Read the full comparison in [docs/comparison.md](docs/comparison.md).
 
