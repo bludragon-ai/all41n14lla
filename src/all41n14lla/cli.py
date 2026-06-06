@@ -12,6 +12,7 @@ from rich.table import Table
 
 from all41n14lla import __version__
 from all41n14lla.engine.nodes import MemoryNode, NodeType
+from all41n14lla.engine.retrieval import retrieve
 from all41n14lla.engine.search import search as fts_search
 from all41n14lla.engine.storage import (
     NODE_FOLDERS,
@@ -108,6 +109,48 @@ def serve() -> None:
     main()
 
 
+def _doctor_constraint_floor(storage: Storage) -> None:
+    """Report constraint-floor health: count, untagged rules, tag hotspots.
+
+    The floor's guarantee is tag-scoped — an untagged constraint can never be
+    floor-surfaced, and a tag shared by too many constraints will flood the
+    caller's context (the floor caps at 50 and flags overflow). Make both
+    observable instead of surprising.
+    """
+    from collections import Counter
+
+    rows = storage.conn.execute(
+        "SELECT path FROM nodes WHERE type = ?", (NodeType.CONSTRAINT.value,)
+    ).fetchall()
+    constraints: list[MemoryNode] = []
+    for row in rows:
+        p = Path(row["path"])
+        if p.exists():
+            try:
+                constraints.append(MemoryNode.from_file(p))
+            except Exception:
+                continue
+    console.print(
+        f"[green]✓[/green] constraint floor: ACTIVE ({len(constraints)} constraints indexed)"
+    )
+    untagged = [c for c in constraints if not c.tags]
+    if untagged:
+        console.print(
+            f"[yellow]⚠[/yellow] {len(untagged)} constraint(s) have NO tags — "
+            "the floor is tag-scoped, so these can never be guaranteed-surfaced. "
+            f"First: {untagged[0].id[:8]}"
+        )
+    tag_counts = Counter(
+        str(tag).lower() for c in constraints for tag in c.tags
+    )
+    hot = [(t, n) for t, n in tag_counts.most_common() if n > 20]
+    for tag, n in hot:
+        console.print(
+            f"[yellow]⚠[/yellow] tag hotspot: '{tag}' is on {n} constraints — "
+            "recalls overlapping it approach the floor cap (50); consider splitting"
+        )
+
+
 @app.command()
 def doctor(vault: Path = _vault_option()) -> None:
     """Check environment + vault health."""
@@ -132,6 +175,7 @@ def doctor(vault: Path = _vault_option()) -> None:
                     "SELECT COUNT(*) FROM nodes"
                 ).fetchone()[0]
                 console.print(f"[green]✓[/green] index: {db} ({count} nodes)")
+                _doctor_constraint_floor(storage)
         else:
             console.print(
                 f"[yellow]⚠[/yellow] no index yet at {db} — run `remember` or `reconcile`"
@@ -191,14 +235,14 @@ def recall(
     limit: int = typer.Option(10, "--limit", help="Max results"),
     vault: Path = _vault_option(),
 ) -> None:
-    """Search memories by full-text query."""
+    """Search memories with type-aware retrieval (constraint floor + decay)."""
     vault = _resolve_vault(vault)
     nt = _resolve_type(node_type) if node_type else None
 
     with Storage(default_db_path(vault)) as storage:
-        results = fts_search(storage, query, node_type=nt, limit=limit)
+        outcome = retrieve(storage, query, node_type=nt, limit=limit)
 
-    if not results:
+    if not outcome.results:
         console.print("[yellow]No matches.[/yellow]")
         return
 
@@ -207,12 +251,24 @@ def recall(
     table.add_column("type")
     table.add_column("id", overflow="fold")
     table.add_column("preview", overflow="fold")
-    for node, score in results:
+    for node, score in outcome.results:
         preview = node.content.strip().splitlines()[0][:80] if node.content else ""
-        table.add_row(
-            f"{score:.2f}", node.type.value, node.id[:8], preview
+        type_label = (
+            f"[cyan]⚓ {node.type.value}[/cyan]"
+            if node.id in outcome.floor_ids
+            else node.type.value
         )
+        table.add_row(f"{score:.2f}", type_label, node.id[:8], preview)
     console.print(table)
+    if outcome.floor_ids:
+        console.print(
+            "[dim]⚓ = constraint floor — surfaced by tag overlap, exempt from ranking[/dim]"
+        )
+    if outcome.floor_overflow:
+        console.print(
+            "[yellow]⚠ constraint floor hit its safety cap — narrow your tags "
+            "or split hot tags (see `doctor`)[/yellow]"
+        )
 
 
 @app.command()

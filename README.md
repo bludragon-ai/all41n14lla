@@ -7,7 +7,7 @@ Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 [![Python](https://img.shields.io/pypi/pyversions/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Status:** `v0.1.0` (stable, on PyPI). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, pathways edge auto-increment on episode writes. 26/26 tests passing; CI matrix validates Python 3.11 / 3.12 / 3.13. Install from PyPI below.
+> **Status:** `v0.1.0` (stable, on PyPI) + type-aware retrieval landed in main (unreleased). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. 39/39 tests passing; CI matrix validates Python 3.11 / 3.12 / 3.13. Install from PyPI below.
 
 ## The problem
 
@@ -30,7 +30,9 @@ Four node types, one vault, type-aware retrieval.
 
 Each lives in its own folder (`concepts/`, `patterns/`, `episodes/`, `constraints/`). Each is a markdown file with YAML frontmatter. You can edit them by hand — the `watchdog` observer reconciles changes into the index. Hand-editing is a supported workflow, not a workaround.
 
-Retrieval is not one ranking function over one bucket. Concepts rank by match score plus tag overlap. Patterns add a moderate recency boost. Episodes add a stronger one. Constraints whose tags overlap the query are **always** returned, regardless of match score — hard rules are not allowed to silently drop out of a recall. Full architecture: [docs/architecture.md](docs/architecture.md).
+Retrieval is not one ranking function over one bucket. Concepts rank by match score plus tag overlap. Patterns add a moderate recency boost. Episodes add a stronger one (30-day half-life decay). Constraints whose tags overlap the query are **always** returned, regardless of match score — hard rules are not allowed to silently drop out of a recall.
+
+The constraint guarantee is **deterministic context injection, not a ranking**: a separate, uncapped code path keyed on tag overlap (stem-aware), exempt from the result limit, returned in the top slots. Stated precondition: it is tag-scoped — an untagged constraint, or a query with no overlapping terms, will not trigger it. `all41n14lla doctor` reports untagged constraints and tag hotspots so the precondition is observable, not a gotcha. The floor caps at 50 injected rules to protect the caller's context window. Full architecture: [docs/architecture.md](docs/architecture.md).
 
 ## Install
 
@@ -100,9 +102,10 @@ Read the full comparison in [docs/comparison.md](docs/comparison.md).
 
 ## Roadmap
 
-- **v0.1 (this release)** — four node types, markdown on disk, SQLite + FTS5 index, MCP stdio server, watchdog reconciliation, CLI (`init`, `serve`, `doctor`, `remember`, `recall`, `forget`, `reconcile`, `version`). Lexical search only.
-- **v0.2** — embedding-based semantic recall, pattern promotion from repeated episodes, decay on episodes, scheduled `consolidate` pass.
-- **v0.3** — Obsidian plugin so the vault is a first-class notebook, graph view for nodes and links, bidirectional editing.
+- **v0.1 (shipped)** — four node types, markdown on disk, SQLite + FTS5 index, MCP stdio server, watchdog reconciliation, CLI (`init`, `serve`, `doctor`, `remember`, `recall`, `forget`, `reconcile`, `version`). Lexical search only.
+- **v0.2 (in main, unreleased)** — type-aware retrieval: the deterministic constraint floor, per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, `doctor` floor diagnostics. Pattern promotion (`consolidate`) remains a stub — honestly: the co-occurrence signal it needs (the `edges` table) only fills when episodes carry explicit `links`, and a body-mention extractor does not exist yet.
+- **v0.3** — pattern promotion over a real co-occurrence signal + tag-scoped recall (`tags=[...]` filter) for multi-team shared-memory use.
+- **Explicitly not planned** — embedding/vector recall as a hard dependency (see [docs/comparison.md](docs/comparison.md)); may appear later as an off-by-default opt-in. No Obsidian plugin, graph view, or bidirectional-edit subsystem — the vault is plain markdown and already opens anywhere.
 
 No dates. Ships when it ships.
 

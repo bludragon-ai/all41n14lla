@@ -19,6 +19,7 @@ from typing import Optional
 from mcp.server.fastmcp import FastMCP
 
 from all41n14lla.engine.nodes import MemoryNode, NodeType
+from all41n14lla.engine.retrieval import retrieve
 from all41n14lla.engine.search import search as fts_search
 from all41n14lla.engine.storage import (
     Storage,
@@ -106,24 +107,31 @@ def recall(
     type: Optional[str] = None,
     limit: int = 10,
 ) -> list[dict]:
-    """Search stored memories by full-text query.
+    """Search stored memories with type-aware, deterministic retrieval.
 
     Use this whenever you need to look up what the user previously remembered
-    before answering. Treats the query as a phrase match across memory content
-    and tags; ranks with BM25.
+    before answering. Lexical matches rank by BM25 with per-type policies:
+    concepts gain a tag-overlap bonus, patterns a moderate recency boost,
+    episodes a strong 30-day-half-life decay.
+
+    Constraints whose tags overlap the query are ALWAYS returned — a separate,
+    uncapped code path exempt from the limit (deterministic context injection,
+    not a ranking). Floor items carry ``floor: true`` and occupy the top slots.
 
     Args:
         query: The phrase to search for.
         type: Optional. Restrict to one of concept, pattern, episode, constraint.
-        limit: Maximum number of matches to return (default 10).
+            Restricting to a non-constraint type skips the floor (explicit scope).
+        limit: Maximum number of lexical matches to return (default 10).
+            Floor constraints are returned in addition to this limit.
 
-    Returns a list of ``{id, type, content, tags, links, path, score}`` dicts,
-    ranked highest-score-first.
+    Returns a list of ``{id, type, content, tags, links, path, score, floor}``
+    dicts — floor constraints first, then rescored matches, best-first.
     """
     vault = _require_vault()
     nt = _resolve_node_type(type)
     with Storage(default_db_path(vault)) as storage:
-        hits = fts_search(storage, query, node_type=nt, limit=limit)
+        outcome = retrieve(storage, query, node_type=nt, limit=limit)
 
     return [
         {
@@ -134,8 +142,9 @@ def recall(
             "links": list(node.links),
             "path": str(node.path) if node.path else None,
             "score": score,
+            "floor": node.id in outcome.floor_ids,
         }
-        for node, score in hits
+        for node, score in outcome.results
     ]
 
 

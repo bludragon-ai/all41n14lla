@@ -59,15 +59,17 @@ Per-type policies:
 - **Concept** — match score plus tag overlap. No recency boost.
 - **Pattern** — match score plus recency, with a moderate recency boost. Recent patterns beat older ones at similar relevance.
 - **Episode** — match score plus recency, with a stronger recency boost than patterns. Old episodes decay fast.
-- **Constraint** — any constraint whose tags overlap the query's tags is **always** returned, regardless of match score. Hard rules are not allowed to silently drop out of a recall.
+- **Constraint** — any constraint whose tags overlap the query's terms is **always** returned, regardless of match score. Hard rules are not allowed to silently drop out of a recall.
+
+The constraint guarantee (implemented in `engine/retrieval.py`) is a separate, uncapped code path keyed on tag overlap — deterministic context injection, not a ranking. Floor items occupy the top ordinal slots and are exempt from the result limit. Stated precondition: it is tag-scoped; an untagged constraint, or a query with no overlapping terms (stem-aware via the Porter tokenizer), does not trigger it. A safety cap (50) guards the caller's context window; `doctor` reports untagged constraints and tag hotspots. The index stays derived: delete `index.db`, run `reconcile`, and the guarantee still holds — it is computed from the `tags` column at query time.
 
 ## Pathways
 
-On `episode` write, the engine extracts referenced concept IDs from the node's `links` field and from concept mentions in the body. For each co-occurring pair of concepts, `edges.weight` is incremented.
+On `episode` write, the engine increments `edges.weight` for each co-occurring pair of concept IDs named in the node's `links` field. (Honest limitation: extraction of concept mentions from the body text is **not implemented** — the signal comes only from explicit `links`, so an episode written without links adds nothing to the graph.)
 
-This turns episodes into a weighting signal over the concept graph. Concepts that repeatedly co-occur in lived episodes accumulate weight together.
+This turns linked episodes into a weighting signal over the concept graph. Concepts that repeatedly co-occur in lived episodes accumulate weight together — *if* the episodes name them.
 
-`consolidate` (v0.2) walks the edges table, finds edge-dense clusters of concepts, and promotes each cluster to a new `pattern` node. Decay runs in the same pass: stale edges lose weight over time, so patterns reflect *current* behavior, not everything that ever happened.
+`consolidate` (planned) will walk the edges table, find edge-dense clusters of concepts, and promote each cluster to a new `pattern` node, with decay in the same pass. It ships only after the co-occurrence signal is real — promoting patterns from an empty edges table would be theater. Time-based decay at *retrieval* (the 30-day episode half-life) already ships and needs no edges.
 
 ## MCP server
 
@@ -91,6 +93,7 @@ Each tool's description is written like marketing copy for the calling model. Th
 
 ## What ships when
 
-- `0.1.0-alpha` (current): scaffold. Frontmatter + `MemoryNode` dataclass are implemented. CLI commands are stubs.
-- `0.1.0`: storage, FTS5 retrieval, MCP server, watchdog reconciliation.
-- `0.2.0`: pathway promotion and decay.
+- `0.1.0` (shipped, on PyPI): storage, FTS5 retrieval, MCP server (all five tools implemented; `consolidate` returns a stub status), watchdog reconciliation, full CLI.
+- main (unreleased): type-aware retrieval — deterministic constraint floor, per-type rescoring, 30-day episode decay, `doctor` floor diagnostics.
+- `0.2.0`: releases the retrieval engine above.
+- `0.3.0`: pattern promotion over a real co-occurrence signal; tag-scoped recall.
