@@ -14,7 +14,7 @@ Honest look at `all41n14lla` vs. the other MCP-memory tools worth naming. Every 
 
 ## Notes per tool
 
-**all41n14lla.** Markdown on disk is the source of truth. SQLite with FTS5 is just an index. Four fixed node types, each with its own ranking policy; constraints whose tags overlap the query ride a separate, uncapped code path and are never silently dropped from a recall — deterministic context injection, not a ranking (see the benchmark below). Weakness: no embeddings (deliberate), lexical phrase search for non-constraints. No cloud sync. No web UI.
+**all41n14lla.** Markdown on disk is the source of truth. SQLite with FTS5 is just an index. Four fixed node types, each with its own ranking policy; constraints whose tags overlap the query ride a separate, uncapped code path and are never silently dropped from a recall — deterministic context injection, not a ranking (see the benchmark below). Weakness: no embeddings (deliberate), lexical all-terms (AND) search for non-constraints. No cloud sync. No web UI.
 
 **Basic Memory.** The closest philosophical neighbor. Also markdown-first, also MCP-native, also local-first. Adds semantic search via FastEmbed, which `all41n14lla` does not. Uses observations + relations rather than fixed node types. AGPL-3.0 license is more restrictive than MIT and may matter for commercial consumers.
 

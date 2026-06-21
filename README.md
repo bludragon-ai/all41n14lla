@@ -7,7 +7,7 @@ Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 [![Python](https://img.shields.io/pypi/pyversions/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Status:** `v0.1.0` (stable, on PyPI) + type-aware retrieval landed in main (unreleased). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. 39/39 tests passing; CI matrix validates Python 3.11 / 3.12 / 3.13. Install from PyPI below.
+> **Status:** `v0.1.0` (stable, on PyPI) + type-aware retrieval and `wire` landed in main (unreleased). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
 
 ## The problem
 
@@ -36,25 +36,21 @@ The constraint guarantee is **deterministic context injection, not a ranking**: 
 
 ## Install
 
-### From PyPI
+One command — install, create the vault, wire every MCP client you have:
 
 ```bash
-pipx install all41n14lla
+pipx install all41n14lla && all41n14lla init && all41n14lla wire
 ```
 
-Verify: `all41n14lla version` (prints `0.1.0` or newer).
+The same thing as three readable steps:
 
-### From source
+1. **Install** — `pipx install all41n14lla` (verify: `all41n14lla version`)
+2. **Create the vault** — `all41n14lla init` (scaffolds `~/.all41n14lla/`)
+3. **Wire your clients** — `all41n14lla wire` detects Claude Code, Claude Desktop, Cursor, Gemini CLI, and Codex CLI and adds the server to each config. Idempotent, backs up any config it touches, `--dry-run` previews without writing.
 
-```bash
-git clone https://github.com/bludragon-ai/all41n14lla.git
-cd all41n14lla
-python3.13 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-```
+> `wire` is in main, unreleased — on the released `0.1.0` wheel, paste the config block from [Client config](#client-config) instead.
 
-Python 3.11+ works; 3.13 is what I develop against.
+Python 3.11+ works; 3.13 is what I develop against. Working from a clone? See [CONTRIBUTING.md](CONTRIBUTING.md#getting-set-up).
 
 ## First run
 
@@ -67,11 +63,13 @@ all41n14lla doctor                                 # verify environment + vault 
 
 The default vault is `~/.all41n14lla/` — a hidden per-user dotfile. Pass `--path ~/memory` (or any other path) if you prefer a visible vault, e.g. one you open in Obsidian. Every CLI command also honors `ALL41N14LLA_VAULT`, so run `export ALL41N14LLA_VAULT=~/memory` once and you can drop `--vault` from each call — the MCP server reads the same variable, so the CLI and the server always agree.
 
-Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (stub, lands in v0.2), `version`, `serve`.
+Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (stub, lands in v0.2), `wire` (auto-configure MCP clients), `version`, `serve`.
 
-## Claude Code / Claude Desktop / Cursor config
+## Client config
 
-Drop this into the MCP config for your client of choice.
+`all41n14lla wire` writes all of this for you (and `wire --dry-run` shows you exactly what it would write). To wire a client by hand instead, this is the shape.
+
+**JSON clients** — Claude Code (`~/.claude.json`), Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS), Cursor (`~/.cursor/mcp.json`), and Gemini CLI (`~/.gemini/settings.json`) all take the same block under the `mcpServers` key:
 
 ```json
 {
@@ -83,6 +81,16 @@ Drop this into the MCP config for your client of choice.
   }
 }
 ```
+
+**Codex CLI** (`~/.codex/config.toml`) uses TOML — note the underscore in `mcp_servers`:
+
+```toml
+[mcp_servers.all41n14lla]
+command = "all41n14lla"
+args = ["serve"]
+```
+
+Using a non-default vault? Add an env entry — `"env": {"ALL41N14LLA_VAULT": "/path/to/vault"}` in JSON, or an `[mcp_servers.all41n14lla.env]` table with `ALL41N14LLA_VAULT = "/path/to/vault"` in TOML. If a client launches with a restricted PATH (Claude Desktop does), use the absolute binary path from `which all41n14lla` as `command` — `wire` does this automatically.
 
 Transport is stdio. One process, one client. The server exposes `remember`, `recall`, `forget`, `inspect`, and `consolidate` as MCP tools.
 

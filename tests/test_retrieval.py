@@ -210,7 +210,6 @@ def test_pattern_decays_moderately_vs_episode(vault, storage):
             updated=then,
         ),
     )
-    # NB: lexical search is phrase-matched — use a contiguous phrase
     outcome = retrieve(storage, "smoke suite", limit=5, now=now)
     scores = {node.id: score for node, score in outcome.results}
     assert scores[pattern.id] > scores[episode.id], (

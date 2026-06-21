@@ -394,6 +394,82 @@ def reconcile(vault: Path = _vault_option()) -> None:
 
 
 @app.command()
+def wire(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would change without writing anything."
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Replace an existing all41n14lla entry that differs (JSON clients only).",
+    ),
+    command: Optional[str] = typer.Option(
+        None,
+        "--command",
+        help="Server command to write. Default: absolute path of the installed binary.",
+    ),
+    vault: Optional[Path] = typer.Option(
+        None,
+        "--vault",
+        "-v",
+        help=(
+            "Embed ALL41N14LLA_VAULT in each client config for a non-default vault. "
+            "Defaults to $ALL41N14LLA_VAULT when set."
+        ),
+    ),
+) -> None:
+    """Detect installed MCP clients and wire the all41n14lla server into each.
+
+    Knows Claude Code, Claude Desktop, Cursor, Gemini CLI, and Codex CLI.
+    Idempotent — already-wired clients are left untouched. Configs are backed
+    up next to the original before any modifying write. Conflicting entries
+    are reported, never silently overwritten.
+    """
+    from all41n14lla import wire as wiring
+
+    env_vault = os.environ.get("ALL41N14LLA_VAULT")
+    vault_value = (
+        str(_resolve_vault(vault)) if vault else (env_vault or None)
+    )
+    results = wiring.wire_all(
+        command=command, vault=vault_value, dry_run=dry_run, force=force
+    )
+
+    if not results:
+        console.print(
+            "[yellow]No known MCP clients detected.[/yellow] Looked for Claude Code "
+            "(~/.claude.json), Claude Desktop, Cursor (~/.cursor/), Gemini CLI "
+            "(~/.gemini/), and Codex CLI (~/.codex/). See the README for manual config."
+        )
+        return
+
+    styles = {
+        wiring.WIRED: "[green]✓ wired[/green]",
+        wiring.ALREADY: "[green]✓ already wired[/green]",
+        wiring.WOULD_WIRE: "[cyan]→ would wire[/cyan]",
+        wiring.CONFLICT: "[yellow]⚠ conflict[/yellow]",
+        wiring.ERROR: "[red]✗ error[/red]",
+    }
+    table = Table(title="MCP client wiring" + (" (dry run)" if dry_run else ""))
+    table.add_column("client")
+    table.add_column("status")
+    table.add_column("config", overflow="fold")
+    table.add_column("detail", overflow="fold")
+    for r in results:
+        table.add_row(r.client, styles.get(r.status, r.status), str(r.config), r.detail)
+    console.print(table)
+
+    if any(r.status == wiring.WIRED for r in results):
+        console.print(
+            "[dim]Restart each client to load the server (MCP servers load on startup). "
+            f"Backups of modified configs sit next to the originals as "
+            f"*{wiring.BACKUP_SUFFIX}.[/dim]"
+        )
+    if any(r.status == wiring.ERROR for r in results):
+        raise typer.Exit(1)
+
+
+@app.command()
 def version() -> None:
     """Show version."""
     console.print(f"all41n14lla {__version__}")

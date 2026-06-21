@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Added
+- Type-aware retrieval: deterministic constraint floor (tag-overlap injection, exempt from the result limit, capped at 50 with an overflow flag), per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, 90-day floored pattern recency. New module: `all41n14lla.engine.retrieval`.
+- `doctor` constraint-floor diagnostics: floor status, untagged (floor-invisible) constraints, tag hotspots.
+- Constraint-recall benchmark (`benchmarks/constraint_recall.py`) + comparison column.
+- `all41n14lla wire` — detects installed MCP clients (Claude Code, Claude Desktop, Cursor, Gemini CLI, Codex CLI) and adds the server block to each config. Idempotent, conflict-aware, backs up modified configs, `--dry-run` previews, `--force` replaces a differing JSON entry. New module: `all41n14lla.wire`.
+- Python 3.14 in the CI matrix and trove classifiers.
+
+### Fixed
+- **Multi-word recall returned no matches** when the query terms were not adjacent in the stored memory — the documented README quickstart (`recall "sqlite tokenizer"`) failed against its own example. `_sanitize` wrapped the whole query as a single FTS5 phrase (adjacency-matched); it now quotes each term individually and joins with FTS5's implicit AND. Operators stay neutralized; word order and gaps no longer matter. Affected both the CLI and the MCP server's `recall` tool.
+- CLI honors `ALL41N14LLA_VAULT` for default vault resolution, matching the MCP server.
+
+### Changed
+- Docs no longer hard-code test counts (they drifted three ways across two files); CI is the source of truth.
+- README install path is one command (`pipx install all41n14lla && all41n14lla init && all41n14lla wire`); from-source setup lives in CONTRIBUTING.md and uses version-agnostic `python3 -m venv`.
 
 ## [0.1.0] - 2026-04-25
 

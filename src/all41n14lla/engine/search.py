@@ -14,9 +14,28 @@ from all41n14lla.engine.storage import Storage
 
 
 def _sanitize(query: str) -> str:
-    """Wrap the query as an FTS5 phrase so special operators are neutralized."""
-    cleaned = query.replace('"', "").strip()
-    return f'"{cleaned}"' if cleaned else ""
+    """Quote each term as its own FTS5 phrase, joined by FTS5's implicit AND.
+
+    Quoting neutralizes FTS5 query operators (``AND``/``OR``/``NOT``/``NEAR``,
+    ``-``, ``:``, ``*``, parentheses) so user text can never inject query
+    syntax. Joining the quoted terms with whitespace is FTS5's implicit AND:
+    every term must appear somewhere in the document, in ANY position.
+
+    The previous implementation wrapped the WHOLE query in one pair of quotes,
+    turning every multi-word query into a phrase match that required the terms
+    to be ADJACENT — so the README's own quickstart example
+    (``recall "sqlite tokenizer"`` against a note reading "sqlite fts5 uses
+    the porter tokenizer by default") returned zero matches.
+
+    Terms with no alphanumeric characters tokenize to nothing (an empty FTS5
+    phrase is a syntax error), so they are dropped.
+    """
+    terms = []
+    for raw in query.split():
+        term = raw.replace('"', "")
+        if any(ch.isalnum() for ch in term):
+            terms.append(f'"{term}"')
+    return " ".join(terms)
 
 
 def search(
