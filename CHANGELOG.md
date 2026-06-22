@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Python 3.14 in the CI matrix and trove classifiers.
 
 ### Fixed
-- **Multi-word recall returned no matches** when the query terms were not adjacent in the stored memory — the documented README quickstart (`recall "sqlite tokenizer"`) failed against its own example. `_sanitize` wrapped the whole query as a single FTS5 phrase (adjacency-matched); it now quotes each term individually and joins with FTS5's implicit AND. Operators stay neutralized; word order and gaps no longer matter. Affected both the CLI and the MCP server's `recall` tool.
+- **Multi-word recall returned too few (or no) matches.** `_sanitize` first wrapped the whole query as one FTS5 phrase (adjacency-required), then quoted each term but joined them with FTS5's implicit AND (every term required in one note) — so a recall query whose words were spread across different notes (e.g. `recall "Jordan career professional"`) silently dropped relevant matches. A tool named `recall` is recall-oriented: terms are now quoted individually and joined with `OR`, so a note matching ANY term is a candidate and BM25 ranks notes matching more (and rarer) terms higher (the all-terms note still sorts top). Operators stay neutralized; single-term queries are unchanged. Affects both the CLI and the MCP server's `recall` tool.
 - CLI honors `ALL41N14LLA_VAULT` for default vault resolution, matching the MCP server.
 
 ### Changed

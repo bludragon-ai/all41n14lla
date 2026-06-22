@@ -1,14 +1,16 @@
 """Tests for FTS5 query sanitization and multi-word search semantics.
 
-Regression suite for the quickstart-killer: ``_sanitize`` used to wrap the
-WHOLE query in one pair of quotes, turning every multi-word query into an
-FTS5 phrase match that required the terms to be ADJACENT. The README's own
-example — remember "sqlite fts5 uses the porter tokenizer by default", then
-``recall "sqlite tokenizer"`` — returned zero matches.
+Regression suite for two successive recall-killers:
+1. ``_sanitize`` once wrapped the WHOLE query in one pair of quotes, forcing a
+   phrase match that required the terms to be ADJACENT.
+2. It then joined terms with FTS5's implicit AND (every term required in one
+   note) — which silently returned ``[]`` for natural recall queries whose
+   words are spread across different notes (e.g. "Jordan career professional").
 
 The contract now: each term is quoted individually (operators stay
-neutralized) and joined with FTS5's implicit AND (every term must appear,
-any position).
+neutralized) and joined with ``OR`` — a note matching ANY term is a candidate,
+and BM25 ranks notes matching more (and rarer) terms higher. Single-term
+queries are unaffected.
 """
 from __future__ import annotations
 
@@ -37,7 +39,7 @@ def storage(tmp_path: Path):
 # ── _sanitize unit behavior ──────────────────────────────────────────────────
 
 def test_sanitize_quotes_each_term_individually():
-    assert _sanitize("sqlite tokenizer") == '"sqlite" "tokenizer"'
+    assert _sanitize("sqlite tokenizer") == '"sqlite" OR "tokenizer"'
 
 
 def test_sanitize_single_word_unchanged_semantics():
@@ -45,7 +47,7 @@ def test_sanitize_single_word_unchanged_semantics():
 
 
 def test_sanitize_strips_embedded_quotes():
-    assert _sanitize('sql"ite token"izer') == '"sqlite" "tokenizer"'
+    assert _sanitize('sql"ite token"izer') == '"sqlite" OR "tokenizer"'
 
 
 def test_sanitize_drops_pure_punctuation_terms():
@@ -73,17 +75,32 @@ def test_single_word_still_matches(storage):
     assert search(storage, "tokenizer")
 
 
-def test_and_semantics_requires_all_terms(storage):
-    """A term absent from the document must veto the match (AND, not OR)."""
-    assert search(storage, "sqlite kubernetes") == []
+def test_or_semantics_partial_match_does_not_veto(storage):
+    """A present term matches even when another query term is absent (OR, not AND)."""
+    hits = search(storage, "sqlite kubernetes")  # "kubernetes" absent, "sqlite" present
+    assert hits, "a present term must surface the note even if another term is absent"
+    assert hits[0][0].content == README_EXAMPLE
+
+
+def test_more_term_matches_rank_higher(storage):
+    """BM25 over OR: the note matching more query terms sorts above one matching fewer."""
+    other = MemoryNode(type=NodeType.CONCEPT, content="sqlite is a database")
+    other.write(Path(storage.db_path).parent.parent / folder_for(NodeType.CONCEPT) / f"{other.id}.md")
+    storage.upsert_node(other)
+    hits = search(storage, "sqlite porter tokenizer")  # README note has all 3; "other" has only sqlite
+    assert len(hits) == 2
+    assert hits[0][0].content == README_EXAMPLE  # 3 matched terms outranks 1
 
 
 def test_fts_operators_are_neutralized(storage):
     """Operator-looking input is treated as literal terms, never as syntax."""
-    # would be FTS5 syntax errors / column filters / exclusions if unquoted
-    assert search(storage, "sqlite AND tokenizer") == []  # literal "and" not in doc
-    assert search(storage, "content:sqlite") == []  # ":" neutralized, term "content:sqlite" absent
-    hits = search(storage, "sqlite -porter")  # "-" neutralized, term matches "porter"
+    # "AND" is quoted to a literal term (absent from the doc); the real words
+    # sqlite/tokenizer still match via OR — proving AND wasn't parsed as syntax.
+    hits = search(storage, "sqlite AND tokenizer")
+    assert hits and hits[0][0].content == README_EXAMPLE
+    # ":" neutralized — "content:sqlite" becomes a quoted phrase, absent from the doc.
+    assert search(storage, "content:sqlite") == []
+    hits = search(storage, "sqlite -porter")  # "-" neutralized, both terms match
     assert hits and hits[0][0].content == README_EXAMPLE
 
 
