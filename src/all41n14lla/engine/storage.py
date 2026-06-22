@@ -8,7 +8,7 @@ Schema
 ------
 ``nodes``      one row per memory file (id, type, path, timestamps, stale, decay)
 ``nodes_fts``  FTS5 virtual table on ``content`` and ``tags``, Porter tokenizer
-``edges``      co-occurrence edges between concept ids (for pathways)
+``edges``      co-occurrence edges between node ids (tag overlap / episode links)
 
 Thread-safety
 -------------
@@ -176,9 +176,10 @@ class Storage:
 
         Pairs are stored in canonical order (smaller id first) so that a given
         pair of ids always maps to a single row. Called by ``remember episode``
-        when the episode's ``links`` field names related nodes — the edges
-        table accumulates the co-occurrence signal the ``consolidate`` pass
-        will promote into patterns in v0.2.
+        when the episode's ``links`` field names related nodes. (As of v0.2,
+        ``consolidate`` rebuilds the same ``edges`` table from tag co-occurrence
+        and promotes high-overlap concept pairs into patterns; see
+        ``engine.pathways``.)
 
         Returns the number of pair updates written.
         """

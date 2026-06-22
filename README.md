@@ -63,7 +63,7 @@ all41n14lla doctor                                 # verify environment + vault 
 
 The default vault is `~/.all41n14lla/` — a hidden per-user dotfile. Pass `--path ~/memory` (or any other path) if you prefer a visible vault, e.g. one you open in Obsidian. Every CLI command also honors `ALL41N14LLA_VAULT`, so run `export ALL41N14LLA_VAULT=~/memory` once and you can drop `--vault` from each call — the MCP server reads the same variable, so the CLI and the server always agree.
 
-Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (stub, lands in v0.2), `wire` (auto-configure MCP clients), `version`, `serve`.
+Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (rebuild the tag co-occurrence graph, decay stale edges, promote concept pairs into patterns — `--threshold`, `--dry-run`), `wire` (auto-configure MCP clients), `version`, `serve`.
 
 ## Client config
 
@@ -111,8 +111,8 @@ Read the full comparison in [docs/comparison.md](docs/comparison.md).
 ## Roadmap
 
 - **v0.1 (shipped)** — four node types, markdown on disk, SQLite + FTS5 index, MCP stdio server, watchdog reconciliation, CLI (`init`, `serve`, `doctor`, `remember`, `recall`, `forget`, `reconcile`, `version`). Lexical search only.
-- **v0.2 (in main, unreleased)** — type-aware retrieval: the deterministic constraint floor, per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, `doctor` floor diagnostics. Pattern promotion (`consolidate`) remains a stub — honestly: the co-occurrence signal it needs (the `edges` table) only fills when episodes carry explicit `links`, and a body-mention extractor does not exist yet.
-- **v0.3** — pattern promotion over a real co-occurrence signal + tag-scoped recall (`tags=[...]` filter) for multi-team shared-memory use.
+- **v0.2 (in main, unreleased)** — type-aware retrieval (deterministic constraint floor, per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, `doctor` floor diagnostics) **and real `consolidate`**: rebuilds the `edges` co-occurrence graph from shared tags (so `inspect` returns real neighbors), decays stale edges on a 0.9-per-30-day half-life without deleting them, and promotes concept pairs sharing `>= threshold` tags into draft `pattern` nodes (tagged `unreviewed`, source concepts in `links`). Idempotent; never modifies or deletes an existing node.
+- **v0.3** — co-occurrence beyond tag overlap (body-mention extraction, episode-link enrichment) + tag-scoped recall (`tags=[...]` filter) for multi-team shared-memory use.
 - **Explicitly not planned** — embedding/vector recall as a hard dependency (see [docs/comparison.md](docs/comparison.md)); may appear later as an off-by-default opt-in. No Obsidian plugin, graph view, or bidirectional-edit subsystem — the vault is plain markdown and already opens anywhere.
 
 No dates. Ships when it ships.

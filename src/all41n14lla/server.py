@@ -19,6 +19,7 @@ from typing import Optional
 from mcp.server.fastmcp import FastMCP
 
 from all41n14lla.engine.nodes import MemoryNode, NodeType
+from all41n14lla.engine.pathways import consolidate as run_consolidate
 from all41n14lla.engine.retrieval import retrieve
 from all41n14lla.engine.search import search as fts_search
 from all41n14lla.engine.storage import (
@@ -241,16 +242,45 @@ def inspect(query_or_id: str) -> dict:
 
 
 @mcp.tool()
-def consolidate() -> dict:
-    """Promote high-co-occurrence concepts into patterns and apply decay.
+def consolidate(
+    threshold: float = 3.0,
+    promote: bool = True,
+    dry_run: bool = False,
+) -> dict:
+    """Rebuild the co-occurrence graph, decay stale links, promote patterns.
 
-    v0.1 scaffold only. Real implementation ships in v0.2.0. Calling this now
-    returns a stub status so clients can confirm the tool is wired.
+    Run this explicitly (never on a schedule) to maintain the brain. It:
+
+    - rebuilds the ``edges`` graph that ``inspect`` reads — every pair of nodes
+      sharing one or more tags gets an edge weighted by the number of shared tags;
+    - decays edges that no longer co-occur (weight reduced, never deleted) and
+      prunes orphan edges whose nodes were deleted;
+    - promotes ``concept`` pairs sharing ``>= threshold`` tags (default 3.0) into
+      new draft ``pattern`` nodes, unless a pattern already links them. Drafts are
+      tagged ``auto-generated, consolidate, unreviewed`` with the two source
+      concept ids in ``links``; remove the ``unreviewed`` tag once reviewed.
+
+    Existing memories are never modified or deleted.
+
+    Args:
+        threshold: Minimum shared-tag weight to promote a concept pair (default 3.0).
+        promote: Set False to rebuild/decay edges only, skipping pattern promotion.
+        dry_run: Set True to preview — reports edges, decay, and promotion
+            candidates without writing anything.
+
+    Returns a summary: ``{nodes_scanned, by_type, indexed, edges_written,
+    edges_decayed, edges_pruned, threshold, promote, dry_run, candidates,
+    promotions}``.
     """
-    return {
-        "status": "pending_v0.2.0",
-        "message": "Pattern promotion and decay land in v0.2.0.",
-    }
+    vault = _require_vault()
+    with Storage(default_db_path(vault)) as storage:
+        return run_consolidate(
+            storage,
+            vault,
+            threshold=threshold,
+            promote=promote,
+            dry_run=dry_run,
+        )
 
 
 def main() -> None:

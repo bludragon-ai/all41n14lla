@@ -77,11 +77,39 @@ def test_forget_reports_ambiguous_prefix(scratch_vault: Path):
     # Empty prefix matches everything — 0 or ambiguous, either way not deleted.
 
 
-def test_consolidate_returns_stub_status(scratch_vault: Path):
-    from all41n14lla.server import consolidate
+def test_consolidate_builds_edges_and_inspect_sees_neighbors(scratch_vault: Path):
+    from all41n14lla.server import consolidate, inspect, remember
 
-    result = consolidate()
-    assert result["status"] == "pending_v0.2.0"
+    a = remember(type="concept", content="Concept A", tags=["career", "ai", "founder"])
+    b = remember(type="concept", content="Concept B", tags=["career", "ai", "founder"])
+
+    # No edges before consolidate — inspect returns empty neighbors.
+    assert inspect(query_or_id=a["id"])["neighbors"] == []
+
+    summary = consolidate()
+    assert summary["nodes_scanned"] == 2
+    assert summary["edges_written"] == 1
+    assert summary["dry_run"] is False
+    # 3 shared tags >= default threshold 3.0 -> one draft pattern.
+    assert len(summary["promotions"]) == 1
+    assert sorted(summary["promotions"][0]["source_nodes"]) == sorted([a["id"], b["id"]])
+
+    # inspect now surfaces the real neighbor with its weight.
+    neighbors = inspect(query_or_id=a["id"])["neighbors"]
+    assert any(n["id"] == b["id"] and n["weight"] == 3.0 for n in neighbors)
+
+
+def test_consolidate_dry_run_via_tool_writes_nothing(scratch_vault: Path):
+    from all41n14lla.server import consolidate, inspect, remember
+
+    a = remember(type="concept", content="A", tags=["x", "y", "z"])
+    remember(type="concept", content="B", tags=["x", "y", "z"])
+
+    summary = consolidate(dry_run=True)
+    assert summary["dry_run"] is True
+    assert len(summary["candidates"]) == 1
+    # Nothing persisted.
+    assert inspect(query_or_id=a["id"])["neighbors"] == []
 
 
 def test_recall_type_filter(scratch_vault: Path):

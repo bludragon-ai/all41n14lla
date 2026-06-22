@@ -12,6 +12,7 @@ from rich.table import Table
 
 from all41n14lla import __version__
 from all41n14lla.engine.nodes import MemoryNode, NodeType
+from all41n14lla.engine.pathways import consolidate as run_consolidate
 from all41n14lla.engine.retrieval import retrieve
 from all41n14lla.engine.search import search as fts_search
 from all41n14lla.engine.storage import (
@@ -374,9 +375,80 @@ def inspect(
 
 
 @app.command()
-def consolidate() -> None:
-    """Promote patterns from episodes + apply decay."""
-    console.print("[yellow]Pattern promotion coming in v0.2.0[/yellow]")
+def consolidate(
+    threshold: float = typer.Option(
+        3.0, "--threshold", help="Min shared-tag weight to promote a concept pair"
+    ),
+    promote: bool = typer.Option(
+        True, "--promote/--no-promote", help="Mint patterns (or rebuild edges only)"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview without writing anything"
+    ),
+    vault: Path = _vault_option(),
+) -> None:
+    """Rebuild the co-occurrence graph, decay stale edges, promote patterns."""
+    vault = _resolve_vault(vault)
+    if not vault.exists():
+        console.print(f"[red]No vault at {vault}. Run `all41n14lla init` first.[/red]")
+        raise typer.Exit(1)
+
+    with Storage(default_db_path(vault)) as storage:
+        summary = run_consolidate(
+            storage, vault, threshold=threshold, promote=promote, dry_run=dry_run
+        )
+
+    tag = "[yellow](dry-run)[/yellow] " if dry_run else ""
+    console.print(
+        f"{tag}[green]✓ Consolidated[/green] — scanned {summary['nodes_scanned']} nodes "
+        f"({', '.join(f'{k} {v}' for k, v in summary['by_type'].items())})"
+    )
+    console.print(
+        f"  edges: [cyan]{summary['edges_written']}[/cyan] written, "
+        f"{summary['edges_decayed']} decayed, {summary['edges_pruned']} pruned"
+    )
+
+    candidates = summary["candidates"]
+    promotions = summary["promotions"]
+    if candidates:
+        table = Table(
+            title=f"Promotion candidates (threshold {threshold:g})", show_lines=False
+        )
+        table.add_column("weight", justify="right")
+        table.add_column("shared tags", overflow="fold")
+        table.add_column("concept A", overflow="fold")
+        table.add_column("concept B", overflow="fold")
+        table.add_column("status")
+        minted = {p["id"]: p for p in promotions}
+        minted_pairs = {tuple(p["source_nodes"]) for p in promotions}
+        for c in candidates:
+            pair = tuple(c["source_nodes"])
+            if c["already_promoted"]:
+                status = "[dim]already linked[/dim]"
+            elif dry_run:
+                status = "[yellow]would mint[/yellow]"
+            elif pair in minted_pairs:
+                status = "[green]minted[/green]"
+            else:
+                status = ""
+            table.add_row(
+                f"{c['weight']:.1f}",
+                ", ".join(c["shared_tags"]),
+                c["previews"][0],
+                c["previews"][1],
+                status,
+            )
+        console.print(table)
+        if minted:
+            console.print(
+                f"[green]✓ Minted {len(minted)} draft pattern(s)[/green] "
+                "— tagged `unreviewed`; review then remove the tag."
+            )
+    else:
+        console.print(
+            f"[dim]No concept pairs share >= {threshold:g} tags yet — "
+            "nothing to promote.[/dim]"
+        )
 
 
 @app.command()
