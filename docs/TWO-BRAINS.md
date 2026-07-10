@@ -40,6 +40,22 @@ is folklore. The neuroscience this actually rhymes with is **dual-coding** (verb
 representations) and **hippocampus→neocortex consolidation**. The left/right framing stays because
 it communicates the design in one sentence — and the engineering it describes is real regardless.
 
+## Prior art in-house (verified 2026-07-10 — consolidate, don't invent)
+
+The founder's estate already contains three organs that de-risk this design, none of which fits the
+right-hemisphere slot as-is:
+
+- **Pathways (in the package today):** declared graph edges between nodes — left-brain *structure*.
+  The right hemisphere adds *undeclared* association on top; learned-pathway strengthening
+  (ONE-AND-DONE §2) rides this existing substrate.
+- **graphify (skill):** LLM-agent pipeline → knowledge graph + community detection + interactive
+  HTML. Not an always-on index (costs agent tokens per run) — but its community-detection pass is
+  the model for the **sleep-time insight step** ("these memories form an unnamed theme"), and its
+  HTML rendering is the natural basis for `inspect --web`.
+- **pgvector RAG stack (estate, i5 server):** proven local embedding retrieval — but server-based,
+  which violates the package constitution (offline-first, zero services). The package hemisphere
+  must be in-process (e.g. sqlite-vec + a local embedding model), informed by these patterns.
+
 ## v0.2 build outline (fresh-session work, not tonight)
 
 1. `hemisphere_r/` — embedding index module: local model via Ollama, per-node vectors stored in
