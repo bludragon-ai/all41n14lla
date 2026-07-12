@@ -106,6 +106,7 @@ def recall(
     query: str,
     type: Optional[str] = None,
     limit: int = 10,
+    verify: bool = False,
 ) -> list[dict]:
     """Search stored memories with type-aware, deterministic retrieval.
 
@@ -124,6 +125,11 @@ def recall(
             Restricting to a non-constraint type skips the floor (explicit scope).
         limit: Maximum number of lexical matches to return (default 10).
             Floor constraints are returned in addition to this limit.
+        verify: Optional (default False). When True, each non-floor hit is
+            relevance-judged by a local ollama model and IRRELEVANT hits are
+            dropped; every returned dict gains a ``verified`` flag. If ollama
+            is unreachable the unfiltered hits are returned with
+            ``verified: false`` — verification never breaks recall.
 
     Returns a list of ``{id, type, content, tags, links, path, score, floor}``
     dicts — floor constraints first, then rescored matches, best-first.
@@ -133,7 +139,7 @@ def recall(
     with Storage(default_db_path(vault)) as storage:
         outcome = retrieve(storage, query, node_type=nt, limit=limit)
 
-    return [
+    hits = [
         {
             "id": node.id,
             "type": node.type.value,
@@ -146,6 +152,15 @@ def recall(
         }
         for node, score in outcome.results
     ]
+
+    if verify:
+        from all41n14lla.engine.verify import verify_hits
+
+        hits, verified = verify_hits(query, hits)
+        for h in hits:
+            h["verified"] = verified
+
+    return hits
 
 
 @mcp.tool()
