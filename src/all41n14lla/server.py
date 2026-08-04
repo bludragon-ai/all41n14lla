@@ -175,9 +175,16 @@ def forget(id: str) -> dict:
     prefix matches multiple nodes, nothing is deleted and ``reason`` explains.
     """
     vault = _require_vault()
+    ident = (id or "").strip()
+    if len(ident) < 8:
+        # Estate sweep 2026-08-04: a blank/short id + LIKE '%' would match EVERY
+        # node — enforce the docstring's own "first 8+ characters" contract.
+        return {"deleted": False, "id": None,
+                "reason": "id must be at least the first 8 characters of the node id"}
+    like = ident.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     with Storage(default_db_path(vault)) as storage:
         rows = storage.conn.execute(
-            "SELECT id, path FROM nodes WHERE id LIKE ?", (f"{id}%",)
+            "SELECT id, path FROM nodes WHERE id LIKE ? ESCAPE '\\'", (f"{like}%",)
         ).fetchall()
         if not rows:
             return {"deleted": False, "id": None, "reason": f"no node matches '{id}'"}

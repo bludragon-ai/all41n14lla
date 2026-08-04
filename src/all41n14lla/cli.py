@@ -289,9 +289,14 @@ def forget(
 ) -> None:
     """Delete a memory by id (first 8 chars of uuid, or full id)."""
     vault = _resolve_vault(vault)
+    ident = (node_id or "").strip()
+    if len(ident) < 8:
+        console.print("[red]id must be at least the first 8 characters[/red]")
+        raise typer.Exit(1)
+    like = ident.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     with Storage(default_db_path(vault)) as storage:
         rows = storage.conn.execute(
-            "SELECT id, path FROM nodes WHERE id LIKE ?", (f"{node_id}%",)
+            "SELECT id, path FROM nodes WHERE id LIKE ? ESCAPE '\\'", (f"{like}%",)
         ).fetchall()
         if not rows:
             console.print(f"[red]No node matches '{node_id}'[/red]")
