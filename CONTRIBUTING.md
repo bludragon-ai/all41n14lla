@@ -2,20 +2,18 @@
 
 ## Scope and philosophy
 
-v0.1 ships the shape: four node types, markdown on disk, SQLite + FTS5 index, MCP stdio server. v0.2 adds the dynamics — embeddings, pattern promotion, decay. PRs that align with the roadmap (see [README](README.md)) are welcome. PRs that add features off the roadmap should open an issue first so we can agree on the shape before you spend time on it. No feature creep for its own sake.
+v0.1 ships the shape: four node types, markdown on disk, SQLite + FTS5 index, MCP stdio server. v0.2 adds the dynamics — type-aware retrieval (constraint floor, per-type rescoring, decay; landed in main) and pattern promotion. Embeddings are explicitly not planned as a hard dependency (see the README roadmap). PRs that align with the roadmap (see [README](README.md)) are welcome. PRs that add features off the roadmap should open an issue first so we can agree on the shape before you spend time on it. No feature creep for its own sake.
 
 ## Getting set up
 
 ```bash
 git clone https://github.com/bludragon-ai/all41n14lla.git
 cd all41n14lla
-python3.13 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-pytest -q        # should print 26 passed (or current count)
+python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
+pytest -q        # every test should pass — CI is the source of truth for the count
 ```
 
-Python 3.11+ works; 3.13 is what I develop against.
+Any Python 3.11+ works (`python3 -m venv` picks up whatever you have); 3.13 is what I develop against, and CI covers 3.11–3.14.
 
 ## Making a change
 

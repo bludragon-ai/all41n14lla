@@ -51,7 +51,9 @@ You should see the concept come back from `recall`, and `doctor` should show all
 
 ## 4. Wire Claude Desktop
 
-Open Claude Desktop's MCP config file:
+**The short way (main, unreleased):** `all41n14lla wire` detects Claude Desktop (and Claude Code, Cursor, Gemini CLI, Codex CLI), writes the config block below for you with the absolute binary path, and backs up anything it touches. `all41n14lla wire --dry-run` previews the change first. Then skip to step 5.
+
+**The manual way:** open Claude Desktop's MCP config file:
 
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 
@@ -138,6 +140,29 @@ Then in the config:
 
 **Logs.** Claude Desktop's MCP server logs live at `~/Library/Logs/Claude/mcp-server-all41n14lla.log`. Tail that for stderr output if something's weird.
 
-## Same flow for Cursor / Claude Code
+## Same flow for Cursor / Claude Code / Gemini CLI / Codex CLI
 
-The MCP config format is the same. Cursor lives at `~/.cursor/mcp.json`. Claude Code uses `~/.claude.json` under the `mcpServers` key. Drop in the same server block and the same memories are available across all three tools — that's the whole point.
+`all41n14lla wire` handles every client below in one shot. Wiring by hand instead:
+
+**Same JSON block, different file** — drop the identical `mcpServers` server block into:
+
+- **Cursor:** `~/.cursor/mcp.json`
+- **Claude Code:** `~/.claude.json` (under the top-level `mcpServers` key)
+- **Gemini CLI:** `~/.gemini/settings.json` (under the top-level `mcpServers` key)
+
+**Codex CLI** uses TOML instead, at `~/.codex/config.toml` — note the underscore in `mcp_servers`:
+
+```toml
+[mcp_servers.all41n14lla]
+command = "all41n14lla"
+args = ["serve"]
+```
+
+For a custom vault, Codex takes the env var as a sub-table:
+
+```toml
+[mcp_servers.all41n14lla.env]
+ALL41N14LLA_VAULT = "/Users/YOUR_USER/Documents/memory"
+```
+
+Same server, same memories, available across all five tools — that's the whole point.

@@ -7,7 +7,7 @@ Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 [![Python](https://img.shields.io/pypi/pyversions/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Status:** `v0.1.0` (stable, on PyPI). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, pathways edge auto-increment on episode writes. 26/26 tests passing; CI matrix validates Python 3.11 / 3.12 / 3.13. Install from PyPI below.
+> **Status:** `v0.1.0` (stable, on PyPI) + type-aware retrieval and `wire` landed in main (unreleased). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
 
 ## The problem
 
@@ -30,29 +30,27 @@ Four node types, one vault, type-aware retrieval.
 
 Each lives in its own folder (`concepts/`, `patterns/`, `episodes/`, `constraints/`). Each is a markdown file with YAML frontmatter. You can edit them by hand — the `watchdog` observer reconciles changes into the index. Hand-editing is a supported workflow, not a workaround.
 
-Retrieval is not one ranking function over one bucket. Concepts rank by match score plus tag overlap. Patterns add a moderate recency boost. Episodes add a stronger one. Constraints whose tags overlap the query are **always** returned, regardless of match score — hard rules are not allowed to silently drop out of a recall. Full architecture: [docs/architecture.md](docs/architecture.md).
+Retrieval is not one ranking function over one bucket. Concepts rank by match score plus tag overlap. Patterns add a moderate recency boost. Episodes add a stronger one (30-day half-life decay). Constraints whose tags overlap the query are **always** returned, regardless of match score — hard rules are not allowed to silently drop out of a recall.
+
+The constraint guarantee is **deterministic context injection, not a ranking**: a separate, uncapped code path keyed on tag overlap (stem-aware), exempt from the result limit, returned in the top slots. Stated precondition: it is tag-scoped — an untagged constraint, or a query with no overlapping terms, will not trigger it. `all41n14lla doctor` reports untagged constraints and tag hotspots so the precondition is observable, not a gotcha. The floor caps at 50 injected rules to protect the caller's context window. Full architecture: [docs/architecture.md](docs/architecture.md).
 
 ## Install
 
-### From PyPI
+One command — install, create the vault, wire every MCP client you have:
 
 ```bash
-pipx install all41n14lla
+pipx install all41n14lla && all41n14lla init && all41n14lla wire
 ```
 
-Verify: `all41n14lla version` (prints `0.1.0` or newer).
+The same thing as three readable steps:
 
-### From source
+1. **Install** — `pipx install all41n14lla` (verify: `all41n14lla version`)
+2. **Create the vault** — `all41n14lla init` (scaffolds `~/.all41n14lla/`)
+3. **Wire your clients** — `all41n14lla wire` detects Claude Code, Claude Desktop, Cursor, Gemini CLI, and Codex CLI and adds the server to each config. Idempotent, backs up any config it touches, `--dry-run` previews without writing.
 
-```bash
-git clone https://github.com/bludragon-ai/all41n14lla.git
-cd all41n14lla
-python3.13 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-```
+> `wire` is in main, unreleased — on the released `0.1.0` wheel, paste the config block from [Client config](#client-config) instead.
 
-Python 3.11+ works; 3.13 is what I develop against.
+Python 3.11+ works; 3.13 is what I develop against. Working from a clone? See [CONTRIBUTING.md](CONTRIBUTING.md#getting-set-up).
 
 ## First run
 
@@ -65,11 +63,13 @@ all41n14lla doctor                                 # verify environment + vault 
 
 The default vault is `~/.all41n14lla/` — a hidden per-user dotfile. Pass `--path ~/memory` (or any other path) if you prefer a visible vault, e.g. one you open in Obsidian. Every CLI command also honors `ALL41N14LLA_VAULT`, so run `export ALL41N14LLA_VAULT=~/memory` once and you can drop `--vault` from each call — the MCP server reads the same variable, so the CLI and the server always agree.
 
-Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (stub, lands in v0.2), `version`, `serve`.
+Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (rebuild the tag co-occurrence graph, decay stale edges, promote concept pairs into patterns — `--threshold`, `--dry-run`), `wire` (auto-configure MCP clients), `version`, `serve`.
 
-## Claude Code / Claude Desktop / Cursor config
+## Client config
 
-Drop this into the MCP config for your client of choice.
+`all41n14lla wire` writes all of this for you (and `wire --dry-run` shows you exactly what it would write). To wire a client by hand instead, this is the shape.
+
+**JSON clients** — Claude Code (`~/.claude.json`), Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS), Cursor (`~/.cursor/mcp.json`), and Gemini CLI (`~/.gemini/settings.json`) all take the same block under the `mcpServers` key:
 
 ```json
 {
@@ -82,27 +82,38 @@ Drop this into the MCP config for your client of choice.
 }
 ```
 
+**Codex CLI** (`~/.codex/config.toml`) uses TOML — note the underscore in `mcp_servers`:
+
+```toml
+[mcp_servers.all41n14lla]
+command = "all41n14lla"
+args = ["serve"]
+```
+
+Using a non-default vault? Add an env entry — `"env": {"ALL41N14LLA_VAULT": "/path/to/vault"}` in JSON, or an `[mcp_servers.all41n14lla.env]` table with `ALL41N14LLA_VAULT = "/path/to/vault"` in TOML. If a client launches with a restricted PATH (Claude Desktop does), use the absolute binary path from `which all41n14lla` as `command` — `wire` does this automatically.
+
 Transport is stdio. One process, one client. The server exposes `remember`, `recall`, `forget`, `inspect`, and `consolidate` as MCP tools.
 
 ## Comparison
 
 Every claim below was verified against the tool's current README or docs at the time of writing.
 
-| Tool                           | Markdown-native | Typed retrieval (4 node types) | User-owned local vault | Offline-first | MCP-native | Embeddings | License    |
-| ------------------------------ | --------------- | ------------------------------ | ---------------------- | ------------- | ---------- | ---------- | ---------- |
-| **all41n14lla**                | Yes             | Yes (concept/pattern/episode/constraint) | Yes          | Yes           | Yes        | No (v0.1)  | MIT        |
-| **Basic Memory**               | Yes             | Partial (observations + relations, not 4 fixed types) | Yes (local-first; optional paid cloud sync) | Yes | Yes | Yes (FastEmbed, hybrid FTS + vector) | AGPL-3.0 |
-| **MemPalace**                  | No (verbatim text + SQLite + ChromaDB) | Partial (wings/rooms/drawers hierarchy) | Yes | Yes       | Yes        | Yes (local, ChromaDB default) | MIT |
-| **mem0**                       | No (pluggable vector DB) | Partial (user/session/agent levels) | Only in library mode; cloud and self-hosted are the pitched paths | Library mode only | No (not MCP-native; LangGraph/CrewAI integrations) | Yes (OpenAI `text-embedding-3-small` default) | Apache-2.0 |
-| **MCP Memory (reference)**     | No (JSONL file) | No (user-defined entity types, no enforced taxonomy) | Yes (local JSONL) | Yes | Yes | No (text search only) | MIT |
+| Tool                           | Markdown-native | Typed retrieval (4 node types) | Deterministic constraint surfacing | User-owned local vault | Offline-first | MCP-native | Embeddings | License    |
+| ------------------------------ | --------------- | ------------------------------ | ---------------------------------- | ---------------------- | ------------- | ---------- | ---------- | ---------- |
+| **all41n14lla**                | Yes             | Yes (concept/pattern/episode/constraint) | **Yes** — measured 20/20 vs BM25's 1/20 ([benchmark](docs/comparison.md#benchmark--constraint-recall-under-noise)) | Yes          | Yes           | Yes        | No (deliberate)  | MIT        |
+| **Basic Memory**               | Yes             | Partial (observations + relations, not 4 fixed types) | No (ranked retrieval only) | Yes (local-first; optional paid cloud sync) | Yes | Yes | Yes (FastEmbed, hybrid FTS + vector) | AGPL-3.0 |
+| **MemPalace**                  | No (verbatim text + SQLite + ChromaDB) | Partial (wings/rooms/drawers hierarchy) | No (vector ranking) | Yes | Yes       | Yes        | Yes (local, ChromaDB default) | MIT |
+| **mem0**                       | No (pluggable vector DB) | Partial (user/session/agent levels) | No (similarity ranking) | Only in library mode; cloud and self-hosted are the pitched paths | Library mode only | No (not MCP-native; LangGraph/CrewAI integrations) | Yes (OpenAI `text-embedding-3-small` default) | Apache-2.0 |
+| **MCP Memory (reference)**     | No (JSONL file) | No (user-defined entity types, no enforced taxonomy) | No (text search) | Yes (local JSONL) | Yes | Yes | No (text search only) | MIT |
 
 Read the full comparison in [docs/comparison.md](docs/comparison.md).
 
 ## Roadmap
 
-- **v0.1 (this release)** — four node types, markdown on disk, SQLite + FTS5 index, MCP stdio server, watchdog reconciliation, CLI (`init`, `serve`, `doctor`, `remember`, `recall`, `forget`, `reconcile`, `version`). Lexical search only.
-- **v0.2** — embedding-based semantic recall, pattern promotion from repeated episodes, decay on episodes, scheduled `consolidate` pass.
-- **v0.3** — Obsidian plugin so the vault is a first-class notebook, graph view for nodes and links, bidirectional editing.
+- **v0.1 (shipped)** — four node types, markdown on disk, SQLite + FTS5 index, MCP stdio server, watchdog reconciliation, CLI (`init`, `serve`, `doctor`, `remember`, `recall`, `forget`, `reconcile`, `version`). Lexical search only.
+- **v0.2 (in main, unreleased)** — type-aware retrieval (deterministic constraint floor, per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, `doctor` floor diagnostics) **and real `consolidate`**: rebuilds the `edges` co-occurrence graph from shared tags (so `inspect` returns real neighbors), decays stale edges on a 0.9-per-30-day half-life without deleting them, and promotes concept pairs sharing `>= threshold` tags into draft `pattern` nodes (tagged `unreviewed`, source concepts in `links`). Idempotent; never modifies or deletes an existing node.
+- **v0.3** — co-occurrence beyond tag overlap (body-mention extraction, episode-link enrichment) + tag-scoped recall (`tags=[...]` filter) for multi-team shared-memory use.
+- **Explicitly not planned** — embedding/vector recall as a hard dependency (see [docs/comparison.md](docs/comparison.md)); may appear later as an off-by-default opt-in. No Obsidian plugin, graph view, or bidirectional-edit subsystem — the vault is plain markdown and already opens anywhere.
 
 No dates. Ships when it ships.
 

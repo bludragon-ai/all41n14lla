@@ -4,17 +4,17 @@ Honest look at `all41n14lla` vs. the other MCP-memory tools worth naming. Every 
 
 ## Matrix
 
-| Tool                           | Markdown-native | Typed retrieval (4 node types) | User-owned local vault | Offline-first | MCP-native | Embeddings | License    |
-| ------------------------------ | --------------- | ------------------------------ | ---------------------- | ------------- | ---------- | ---------- | ---------- |
-| **all41n14lla**                | Yes             | Yes (concept/pattern/episode/constraint) | Yes          | Yes           | Yes        | No (v0.1)  | MIT        |
-| **Basic Memory**               | Yes             | Partial (observations + relations, not 4 fixed types) | Yes (local-first; optional paid cloud sync) | Yes | Yes | Yes (FastEmbed, hybrid FTS + vector) | AGPL-3.0 |
-| **MemPalace**                  | No (verbatim text + SQLite + ChromaDB) | Partial (wings/rooms/drawers hierarchy) | Yes | Yes       | Yes        | Yes (local, ChromaDB default) | MIT |
-| **mem0**                       | No (pluggable vector DB) | Partial (user/session/agent levels) | Only in library mode; cloud and self-hosted are the pitched paths | Library mode only | No (not MCP-native; LangGraph/CrewAI integrations) | Yes (OpenAI `text-embedding-3-small` default) | Apache-2.0 |
-| **MCP Memory (reference)**     | No (JSONL file) | No (user-defined entity types, no enforced taxonomy) | Yes (local JSONL) | Yes | Yes | No (text search only) | MIT |
+| Tool                           | Markdown-native | Typed retrieval (4 node types) | Deterministic constraint surfacing | User-owned local vault | Offline-first | MCP-native | Embeddings | License    |
+| ------------------------------ | --------------- | ------------------------------ | ---------------------------------- | ---------------------- | ------------- | ---------- | ---------- | ---------- |
+| **all41n14lla**                | Yes             | Yes (concept/pattern/episode/constraint) | **Yes** (uncapped floor path; tag-scoped) | Yes          | Yes           | Yes        | No (deliberate — see README roadmap)  | MIT        |
+| **Basic Memory**               | Yes             | Partial (observations + relations, not 4 fixed types) | No (ranked retrieval only) | Yes (local-first; optional paid cloud sync) | Yes | Yes | Yes (FastEmbed, hybrid FTS + vector) | AGPL-3.0 |
+| **MemPalace**                  | No (verbatim text + SQLite + ChromaDB) | Partial (wings/rooms/drawers hierarchy) | No (vector ranking) | Yes | Yes       | Yes        | Yes (local, ChromaDB default) | MIT |
+| **mem0**                       | No (pluggable vector DB) | Partial (user/session/agent levels) | No (similarity ranking) | Only in library mode; cloud and self-hosted are the pitched paths | Library mode only | No (not MCP-native; LangGraph/CrewAI integrations) | Yes (OpenAI `text-embedding-3-small` default) | Apache-2.0 |
+| **MCP Memory (reference)**     | No (JSONL file) | No (user-defined entity types, no enforced taxonomy) | No (text search) | Yes (local JSONL) | Yes | Yes | No (text search only) | MIT |
 
 ## Notes per tool
 
-**all41n14lla.** Markdown on disk is the source of truth. SQLite with FTS5 is just an index. Four fixed node types, each with its own ranking policy; constraints are never silently dropped from a recall. Weakness: no embeddings in v0.1, keyword search only. No cloud sync. No web UI. No benchmarks yet.
+**all41n14lla.** Markdown on disk is the source of truth. SQLite with FTS5 is just an index. Four fixed node types, each with its own ranking policy; constraints whose tags overlap the query ride a separate, uncapped code path and are never silently dropped from a recall — deterministic context injection, not a ranking (see the benchmark below). Weakness: no embeddings (deliberate), lexical all-terms (AND) search for non-constraints. No cloud sync. No web UI.
 
 **Basic Memory.** The closest philosophical neighbor. Also markdown-first, also MCP-native, also local-first. Adds semantic search via FastEmbed, which `all41n14lla` does not. Uses observations + relations rather than fixed node types. AGPL-3.0 license is more restrictive than MIT and may matter for commercial consumers.
 
@@ -23,6 +23,37 @@ Honest look at `all41n14lla` vs. the other MCP-memory tools worth naming. Every 
 **mem0.** Not MCP-native (as of this writing). Pitched at LangGraph / CrewAI agent frameworks with a hosted cloud product as the default path. Uses embeddings and hybrid search. If you want a managed memory service with a cloud dashboard, mem0 is that. If you want a file you can `cat`, it isn't.
 
 **MCP Memory reference server.** The official reference implementation from the modelcontextprotocol org. JSONL on disk, text search, no embeddings, no fixed taxonomy. Good for understanding the MCP protocol. Thin on features compared to any of the above.
+
+## Benchmark — constraint recall under noise
+
+The one number this project optimizes for: **when a hard rule is buried under
+operational noise, does a recall for the situation surface the rule in the top 5?**
+
+20 scenarios across common ops domains (deploys, secrets, migrations, billing,
+PII, on-call, …). Each seeds a fresh throwaway vault with one tagged constraint
+plus 50 noise episodes that talk the way standups actually talk (the query
+phrasing appears verbatim in the noise). In 4 of 20 scenarios the rule's own
+text also contains the query phrase, so plain BM25 gets honest lexical chances.
+
+Measured (seed 41, reproducible):
+
+| Retrieval                              | constraint recall@5 |
+| -------------------------------------- | ------------------- |
+| pure BM25 phrase match (v0.1 behavior) | **1/20 (5%)**       |
+| deterministic constraint floor         | **20/20 (100%)**    |
+
+The floor's 100% is *by construction* — every scenario's rule is tagged and
+every query overlaps those tags, so the separate code path cannot miss. That
+is the claim, exactly: deterministic, disclosed precondition, no ranking
+involved. The baseline's 5% is *measured*, not invented — even the four rules
+containing the query phrase mostly drowned, because fifty noise episodes
+contain it too and a top-5 cutoff does what cutoffs do.
+
+Reproduce it:
+
+```bash
+.venv/bin/python benchmarks/constraint_recall.py
+```
 
 ## When to use which
 

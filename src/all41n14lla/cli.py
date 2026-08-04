@@ -12,6 +12,8 @@ from rich.table import Table
 
 from all41n14lla import __version__
 from all41n14lla.engine.nodes import MemoryNode, NodeType
+from all41n14lla.engine.pathways import consolidate as run_consolidate
+from all41n14lla.engine.retrieval import retrieve
 from all41n14lla.engine.search import search as fts_search
 from all41n14lla.engine.storage import (
     NODE_FOLDERS,
@@ -108,6 +110,56 @@ def serve() -> None:
     main()
 
 
+def _doctor_constraint_floor(storage: Storage) -> None:
+    """Report constraint-floor health: count, untagged rules, tag hotspots.
+
+    The floor's guarantee is tag-scoped — an untagged constraint can never be
+    floor-surfaced, and a tag shared by too many constraints will flood the
+    caller's context (the floor caps at 50 and flags overflow). Make both
+    observable instead of surprising.
+    """
+    from collections import Counter
+
+    rows = storage.conn.execute(
+        "SELECT path FROM nodes WHERE type = ?", (NodeType.CONSTRAINT.value,)
+    ).fetchall()
+    constraints: list[MemoryNode] = []
+    for row in rows:
+        p = Path(row["path"])
+        if p.exists():
+            try:
+                constraints.append(MemoryNode.from_file(p))
+            except Exception:
+                continue
+    console.print(
+        f"[green]✓[/green] constraint floor: ACTIVE ({len(constraints)} constraints indexed)"
+    )
+    # judge tags through the SAME tokenizer the engine uses — a tag of pure
+    # symbols ("→", "++") is invisible to the floor even though frontmatter
+    # technically has tags
+    from all41n14lla.engine.retrieval import _tokenize
+
+    def _floor_visible(c: MemoryNode) -> bool:
+        return any(_tokenize(str(tag)) for tag in c.tags)
+
+    untagged = [c for c in constraints if not _floor_visible(c)]
+    if untagged:
+        console.print(
+            f"[yellow]⚠[/yellow] {len(untagged)} constraint(s) have no floor-visible tags — "
+            "the floor is tag-scoped, so these can never be guaranteed-surfaced. "
+            f"First: {untagged[0].id[:8]}"
+        )
+    tag_counts = Counter(
+        str(tag).lower() for c in constraints for tag in c.tags
+    )
+    hot = [(t, n) for t, n in tag_counts.most_common() if n > 20]
+    for tag, n in hot:
+        console.print(
+            f"[yellow]⚠[/yellow] tag hotspot: '{tag}' is on {n} constraints — "
+            "recalls overlapping it approach the floor cap (50); consider splitting"
+        )
+
+
 @app.command()
 def doctor(vault: Path = _vault_option()) -> None:
     """Check environment + vault health."""
@@ -132,6 +184,7 @@ def doctor(vault: Path = _vault_option()) -> None:
                     "SELECT COUNT(*) FROM nodes"
                 ).fetchone()[0]
                 console.print(f"[green]✓[/green] index: {db} ({count} nodes)")
+                _doctor_constraint_floor(storage)
         else:
             console.print(
                 f"[yellow]⚠[/yellow] no index yet at {db} — run `remember` or `reconcile`"
@@ -191,14 +244,14 @@ def recall(
     limit: int = typer.Option(10, "--limit", help="Max results"),
     vault: Path = _vault_option(),
 ) -> None:
-    """Search memories by full-text query."""
+    """Search memories with type-aware retrieval (constraint floor + decay)."""
     vault = _resolve_vault(vault)
     nt = _resolve_type(node_type) if node_type else None
 
     with Storage(default_db_path(vault)) as storage:
-        results = fts_search(storage, query, node_type=nt, limit=limit)
+        outcome = retrieve(storage, query, node_type=nt, limit=limit)
 
-    if not results:
+    if not outcome.results:
         console.print("[yellow]No matches.[/yellow]")
         return
 
@@ -207,12 +260,24 @@ def recall(
     table.add_column("type")
     table.add_column("id", overflow="fold")
     table.add_column("preview", overflow="fold")
-    for node, score in results:
+    for node, score in outcome.results:
         preview = node.content.strip().splitlines()[0][:80] if node.content else ""
-        table.add_row(
-            f"{score:.2f}", node.type.value, node.id[:8], preview
+        type_label = (
+            f"[cyan]⚓ {node.type.value}[/cyan]"
+            if node.id in outcome.floor_ids
+            else node.type.value
         )
+        table.add_row(f"{score:.2f}", type_label, node.id[:8], preview)
     console.print(table)
+    if outcome.floor_ids:
+        console.print(
+            "[dim]⚓ = constraint floor — surfaced by tag overlap, exempt from ranking[/dim]"
+        )
+    if outcome.floor_overflow:
+        console.print(
+            "[yellow]⚠ constraint floor hit its safety cap — narrow your tags "
+            "or split hot tags (see `doctor`)[/yellow]"
+        )
 
 
 @app.command()
@@ -310,9 +375,80 @@ def inspect(
 
 
 @app.command()
-def consolidate() -> None:
-    """Promote patterns from episodes + apply decay."""
-    console.print("[yellow]Pattern promotion coming in v0.2.0[/yellow]")
+def consolidate(
+    threshold: float = typer.Option(
+        3.0, "--threshold", help="Min shared-tag weight to promote a concept pair"
+    ),
+    promote: bool = typer.Option(
+        True, "--promote/--no-promote", help="Mint patterns (or rebuild edges only)"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview without writing anything"
+    ),
+    vault: Path = _vault_option(),
+) -> None:
+    """Rebuild the co-occurrence graph, decay stale edges, promote patterns."""
+    vault = _resolve_vault(vault)
+    if not vault.exists():
+        console.print(f"[red]No vault at {vault}. Run `all41n14lla init` first.[/red]")
+        raise typer.Exit(1)
+
+    with Storage(default_db_path(vault)) as storage:
+        summary = run_consolidate(
+            storage, vault, threshold=threshold, promote=promote, dry_run=dry_run
+        )
+
+    tag = "[yellow](dry-run)[/yellow] " if dry_run else ""
+    console.print(
+        f"{tag}[green]✓ Consolidated[/green] — scanned {summary['nodes_scanned']} nodes "
+        f"({', '.join(f'{k} {v}' for k, v in summary['by_type'].items())})"
+    )
+    console.print(
+        f"  edges: [cyan]{summary['edges_written']}[/cyan] written, "
+        f"{summary['edges_decayed']} decayed, {summary['edges_pruned']} pruned"
+    )
+
+    candidates = summary["candidates"]
+    promotions = summary["promotions"]
+    if candidates:
+        table = Table(
+            title=f"Promotion candidates (threshold {threshold:g})", show_lines=False
+        )
+        table.add_column("weight", justify="right")
+        table.add_column("shared tags", overflow="fold")
+        table.add_column("concept A", overflow="fold")
+        table.add_column("concept B", overflow="fold")
+        table.add_column("status")
+        minted = {p["id"]: p for p in promotions}
+        minted_pairs = {tuple(p["source_nodes"]) for p in promotions}
+        for c in candidates:
+            pair = tuple(c["source_nodes"])
+            if c["already_promoted"]:
+                status = "[dim]already linked[/dim]"
+            elif dry_run:
+                status = "[yellow]would mint[/yellow]"
+            elif pair in minted_pairs:
+                status = "[green]minted[/green]"
+            else:
+                status = ""
+            table.add_row(
+                f"{c['weight']:.1f}",
+                ", ".join(c["shared_tags"]),
+                c["previews"][0],
+                c["previews"][1],
+                status,
+            )
+        console.print(table)
+        if minted:
+            console.print(
+                f"[green]✓ Minted {len(minted)} draft pattern(s)[/green] "
+                "— tagged `unreviewed`; review then remove the tag."
+            )
+    else:
+        console.print(
+            f"[dim]No concept pairs share >= {threshold:g} tags yet — "
+            "nothing to promote.[/dim]"
+        )
 
 
 @app.command()
@@ -327,6 +463,82 @@ def reconcile(vault: Path = _vault_option()) -> None:
     console.print(
         f"[green]✓ Reconciled[/green] — indexed {indexed} files, removed {removed} stale rows"
     )
+
+
+@app.command()
+def wire(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would change without writing anything."
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Replace an existing all41n14lla entry that differs (JSON clients only).",
+    ),
+    command: Optional[str] = typer.Option(
+        None,
+        "--command",
+        help="Server command to write. Default: absolute path of the installed binary.",
+    ),
+    vault: Optional[Path] = typer.Option(
+        None,
+        "--vault",
+        "-v",
+        help=(
+            "Embed ALL41N14LLA_VAULT in each client config for a non-default vault. "
+            "Defaults to $ALL41N14LLA_VAULT when set."
+        ),
+    ),
+) -> None:
+    """Detect installed MCP clients and wire the all41n14lla server into each.
+
+    Knows Claude Code, Claude Desktop, Cursor, Gemini CLI, and Codex CLI.
+    Idempotent — already-wired clients are left untouched. Configs are backed
+    up next to the original before any modifying write. Conflicting entries
+    are reported, never silently overwritten.
+    """
+    from all41n14lla import wire as wiring
+
+    env_vault = os.environ.get("ALL41N14LLA_VAULT")
+    vault_value = (
+        str(_resolve_vault(vault)) if vault else (env_vault or None)
+    )
+    results = wiring.wire_all(
+        command=command, vault=vault_value, dry_run=dry_run, force=force
+    )
+
+    if not results:
+        console.print(
+            "[yellow]No known MCP clients detected.[/yellow] Looked for Claude Code "
+            "(~/.claude.json), Claude Desktop, Cursor (~/.cursor/), Gemini CLI "
+            "(~/.gemini/), and Codex CLI (~/.codex/). See the README for manual config."
+        )
+        return
+
+    styles = {
+        wiring.WIRED: "[green]✓ wired[/green]",
+        wiring.ALREADY: "[green]✓ already wired[/green]",
+        wiring.WOULD_WIRE: "[cyan]→ would wire[/cyan]",
+        wiring.CONFLICT: "[yellow]⚠ conflict[/yellow]",
+        wiring.ERROR: "[red]✗ error[/red]",
+    }
+    table = Table(title="MCP client wiring" + (" (dry run)" if dry_run else ""))
+    table.add_column("client")
+    table.add_column("status")
+    table.add_column("config", overflow="fold")
+    table.add_column("detail", overflow="fold")
+    for r in results:
+        table.add_row(r.client, styles.get(r.status, r.status), str(r.config), r.detail)
+    console.print(table)
+
+    if any(r.status == wiring.WIRED for r in results):
+        console.print(
+            "[dim]Restart each client to load the server (MCP servers load on startup). "
+            f"Backups of modified configs sit next to the originals as "
+            f"*{wiring.BACKUP_SUFFIX}.[/dim]"
+        )
+    if any(r.status == wiring.ERROR for r in results):
+        raise typer.Exit(1)
 
 
 @app.command()
