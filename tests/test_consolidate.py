@@ -132,6 +132,28 @@ def test_consolidate_builds_edges_inspect_sees_them(tmp_path: Path):
         assert _neighbors(s, b)[c] == 1.0
 
 
+def test_consolidate_survives_missing_node_folder(tmp_path: Path):
+    """Regression: the disk_ids scan must not crash when a node folder is absent.
+
+    On Python 3.11, ``Path.glob()`` on a missing directory raises
+    ``FileNotFoundError`` — a vault whose subfolder was deleted after init (or
+    never created) must still consolidate.
+    """
+    vault = _make_vault(tmp_path / "vault")
+    with Storage(default_db_path(vault)) as s:
+        a = _concept(vault, s, "Concept A", ["career", "identity"])
+        b = _concept(vault, s, "Concept B", ["career", "identity"])
+
+        # Remove an unrelated (empty) node folder to simulate a partial vault.
+        removed = next(f for f in NODE_FOLDERS if f != folder_for(NodeType.CONCEPT))
+        (vault / removed).rmdir()
+
+        summary = consolidate(s, vault, now=T0)
+
+        assert summary["nodes_scanned"] == 2
+        assert _neighbors(s, a)[b] == 2.0
+
+
 # ── promotion ─────────────────────────────────────────────────────────────────
 
 

@@ -216,11 +216,13 @@ def consolidate(
     # Orphan detection keys off files PRESENT on disk, not successfully-parsed
     # nodes — a hand-corrupted (unparseable) file must not look like a deleted
     # node and get its still-valid edges pruned.
-    disk_ids = {
-        md_file.stem
-        for nt in NodeType
-        for md_file in (vault / folder_for(nt)).glob("*.md")
-    }
+    # Guard folder existence like scan_nodes()/reconcile() do: on Python 3.11,
+    # Path.glob() on a missing directory raises FileNotFoundError.
+    disk_ids: set[str] = set()
+    for nt in NodeType:
+        folder = vault / folder_for(nt)
+        if folder.exists():
+            disk_ids.update(md_file.stem for md_file in folder.glob("*.md"))
     by_type: dict[str, int] = {nt.value: 0 for nt in NodeType}
     for node in nodes.values():
         by_type[node.type.value] += 1
