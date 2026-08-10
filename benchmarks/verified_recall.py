@@ -17,10 +17,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from all41n14lla.engine.retrieval import retrieve          # noqa: E402
-from all41n14lla.engine.storage import Storage, default_db_path  # noqa: E402
-from all41n14lla.engine.verify import verify_hits          # noqa: E402
-from all41n14lla.redact import redact                     # noqa: E402
+from all41n14lla.engine.retrieval import retrieve
+from all41n14lla.engine.storage import Storage, default_db_path
+from all41n14lla.engine.verify import verify_hits
+from all41n14lla.redact import redact
 
 # 20 queries a real caller actually asks this brain — not synthetic keyword probes.
 QUERIES = [
