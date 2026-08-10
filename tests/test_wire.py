@@ -185,6 +185,20 @@ def test_broken_toml_is_skipped_untouched(home: Path):
     assert (home / ".codex" / "config.toml").read_text(encoding="utf-8") == "model = "
 
 
+def test_non_object_mcp_servers_is_refused_not_clobbered(home: Path):
+    # greptile P1 2026-08-10: mcpServers present but NOT an object must be
+    # refused, never silently replaced with {} — the old code overwrote the
+    # existing value, wrote the config, and reported success (data loss).
+    original = '{"mcpServers": ["oops"], "theme": "dark"}'
+    (home / ".claude.json").write_text(original, encoding="utf-8")
+    results = {r.client: r for r in wire_all(home=home, command=CMD, platform="darwin")}
+    assert results["Claude Code"].status == ERROR
+    assert (home / ".claude.json").read_text(encoding="utf-8") == original
+    assert not (home / (".claude.json" + BACKUP_SUFFIX)).exists()  # never wrote
+    # the other clients still got wired
+    assert results["Cursor"].status == WIRED
+
+
 def test_backup_written_before_modification(home: Path):
     original = (home / ".claude.json").read_bytes()
     wire_all(home=home, command=CMD, platform="darwin")

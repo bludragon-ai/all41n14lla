@@ -147,9 +147,20 @@ def _wire_json(client: Client, block: dict, dry_run: bool, force: bool) -> WireR
                 client.name, client.config, ERROR, "top-level JSON is not an object"
             )
 
-    servers = data.get("mcpServers")
+    # Same shape discipline as the top level (greptile P1 2026-08-10): a
+    # PRESENT but non-object mcpServers (including explicit null) is refused
+    # rather than silently replaced with {} — the old code clobbered whatever
+    # the user had written there and reported success, destroying config data
+    # with no error.
+    servers = data.get("mcpServers", {})
     if not isinstance(servers, dict):
-        servers = {}
+        return WireResult(
+            client.name,
+            client.config,
+            ERROR,
+            'mcpServers is not an object — refusing to overwrite it '
+            "(fix or remove the value, then rerun)",
+        )
     existing = servers.get(SERVER_NAME)
     if existing == block:
         return WireResult(client.name, client.config, ALREADY)
