@@ -17,10 +17,10 @@ Each node lives as a markdown file with YAML frontmatter::
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 import frontmatter
@@ -34,15 +34,34 @@ class NodeType(str, Enum):
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _parse_dt(value: Any) -> datetime:
     if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
     if isinstance(value, str):
         return datetime.fromisoformat(value)
     return _now()
+
+
+def _as_list(value: Any) -> list[str]:
+    """Coerce a frontmatter list field to ``list[str]``, tolerant like _parse_dt."""
+    return [str(item) for item in value] if isinstance(value, (list, tuple)) else []
+
+
+def _as_float(value: Any) -> float:
+    """Coerce a frontmatter float field to ``float``, tolerant like _parse_dt."""
+    if isinstance(value, bool):
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0
+    return 0.0
 
 
 @dataclass
@@ -56,7 +75,7 @@ class MemoryNode:
     updated: datetime = field(default_factory=_now)
     stale: bool = False
     decay: float = 0.0
-    path: Optional[Path] = None
+    path: Path | None = None
 
     def to_frontmatter(self) -> dict[str, Any]:
         return {
@@ -81,18 +100,18 @@ class MemoryNode:
         return path
 
     @classmethod
-    def from_file(cls, path: Path) -> "MemoryNode":
+    def from_file(cls, path: Path) -> MemoryNode:
         post = frontmatter.load(str(path))
         meta = post.metadata
         return cls(
             id=str(meta["id"]),
             type=NodeType(meta["type"]),
-            tags=list(meta.get("tags") or []),
-            links=list(meta.get("links") or []),
+            tags=_as_list(meta.get("tags")),
+            links=_as_list(meta.get("links")),
             created=_parse_dt(meta.get("created")),
             updated=_parse_dt(meta.get("updated")),
             stale=bool(meta.get("stale", False)),
-            decay=float(meta.get("decay", 0.0)),
+            decay=_as_float(meta.get("decay", 0.0)),
             content=post.content,
             path=path,
         )

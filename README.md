@@ -1,5 +1,8 @@
 # all41n14lla
 
+> [!NOTE]
+> **Disambiguation:** This directory is the source repository for the `all41n14lla` PyPI package (the MCP memory server). It is completely separate from J's personal Obsidian knowledge base / vault located at `~/all41n14lla/`.
+
 Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 
 [![Tests](https://github.com/bludragon-ai/all41n14lla/actions/workflows/test.yml/badge.svg)](https://github.com/bludragon-ai/all41n14lla/actions/workflows/test.yml)
@@ -18,6 +21,8 @@ Agent memory is broken in five specific ways: models forget mid-session, hosted 
 Memory should live where you can read it, back it up, grep it, diff it in git, and open it in a text editor. It should speak a protocol every MCP-capable client already supports, so swapping agents does not mean rebuilding your memory. It should be typed, because different kinds of memory deserve different retrieval policies.
 
 `all41n14lla` stores memories as markdown files on your disk, indexes them locally with SQLite + FTS5, and exposes them over MCP stdio. Claude Code, Claude Desktop, Cursor, and anything else that speaks MCP gets `remember`, `recall`, `forget`, `inspect`, and `consolidate` for free. No SDK lock-in. No vendor cloud. No round trip. Your vault is yours.
+
+**Where it's going:** memory built like a brain — the literal ledger you have today (exact, auditable), plus an associative hemisphere (v0.2) that recalls by meaning, the two cross-auditing each other so the memory notices when it disagrees with itself. Design: [docs/TWO-BRAINS.md](docs/TWO-BRAINS.md) · Elevator answers: [docs/PITCH.md](docs/PITCH.md)
 
 ## How it works
 

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -46,7 +45,7 @@ def _require_vault() -> Path:
     return vault
 
 
-def _resolve_node_type(name: Optional[str]) -> Optional[NodeType]:
+def _resolve_node_type(name: str | None) -> NodeType | None:
     if not name:
         return None
     try:
@@ -62,8 +61,8 @@ def _resolve_node_type(name: Optional[str]) -> Optional[NodeType]:
 def remember(
     type: str,
     content: str,
-    tags: Optional[list[str]] = None,
-    links: Optional[list[str]] = None,
+    tags: list[str] | None = None,
+    links: list[str] | None = None,
 ) -> dict:
     """Save a memory for future recall.
 
@@ -104,8 +103,9 @@ def remember(
 @mcp.tool()
 def recall(
     query: str,
-    type: Optional[str] = None,
+    type: str | None = None,
     limit: int = 10,
+    verify: bool = False,
 ) -> list[dict]:
     """Search stored memories with type-aware, deterministic retrieval.
 
@@ -124,6 +124,11 @@ def recall(
             Restricting to a non-constraint type skips the floor (explicit scope).
         limit: Maximum number of lexical matches to return (default 10).
             Floor constraints are returned in addition to this limit.
+        verify: Optional (default False). When True, each non-floor hit is
+            relevance-judged by a local ollama model and IRRELEVANT hits are
+            dropped; every returned dict gains a ``verified`` flag. If ollama
+            is unreachable the unfiltered hits are returned with
+            ``verified: false`` — verification never breaks recall.
 
     Returns a list of ``{id, type, content, tags, links, path, score, floor}``
     dicts — floor constraints first, then rescored matches, best-first.
@@ -133,7 +138,7 @@ def recall(
     with Storage(default_db_path(vault)) as storage:
         outcome = retrieve(storage, query, node_type=nt, limit=limit)
 
-    return [
+    hits = [
         {
             "id": node.id,
             "type": node.type.value,
@@ -146,6 +151,15 @@ def recall(
         }
         for node, score in outcome.results
     ]
+
+    if verify:
+        from all41n14lla.engine.verify import verify_hits
+
+        hits, verified = verify_hits(query, hits)
+        for h in hits:
+            h["verified"] = verified
+
+    return hits
 
 
 @mcp.tool()
@@ -160,9 +174,16 @@ def forget(id: str) -> dict:
     prefix matches multiple nodes, nothing is deleted and ``reason`` explains.
     """
     vault = _require_vault()
+    ident = (id or "").strip()
+    if len(ident) < 8:
+        # Estate sweep 2026-08-04: a blank/short id + LIKE '%' would match EVERY
+        # node — enforce the docstring's own "first 8+ characters" contract.
+        return {"deleted": False, "id": None,
+                "reason": "id must be at least the first 8 characters of the node id"}
+    like = ident.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     with Storage(default_db_path(vault)) as storage:
         rows = storage.conn.execute(
-            "SELECT id, path FROM nodes WHERE id LIKE ?", (f"{id}%",)
+            "SELECT id, path FROM nodes WHERE id LIKE ? ESCAPE '\\'", (f"{like}%",)
         ).fetchall()
         if not rows:
             return {"deleted": False, "id": None, "reason": f"no node matches '{id}'"}
@@ -201,7 +222,7 @@ def inspect(query_or_id: str) -> dict:
             "SELECT id, path FROM nodes WHERE id LIKE ?", (f"{query_or_id}%",)
         ).fetchall()
 
-        node: Optional[MemoryNode] = None
+        node: MemoryNode | None = None
         if len(rows) == 1:
             target_path = Path(rows[0]["path"])
             if not target_path.exists():

@@ -45,7 +45,6 @@ import sys
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 SERVER_NAME = "all41n14lla"
 BACKUP_SUFFIX = ".all41n14lla.bak"
@@ -78,7 +77,7 @@ class Client:
     detected: bool = field(default=False)
 
 
-def server_block(command: str, vault: Optional[str] = None) -> dict:
+def server_block(command: str, vault: str | None = None) -> dict:
     """The MCP server entry we write: ``{command, args[, env]}``."""
     block: dict = {"command": command, "args": ["serve"]}
     if vault:
@@ -242,9 +241,9 @@ def _wire_toml(client: Client, block: dict, dry_run: bool, force: bool) -> WireR
 
 
 def wire_all(
-    home: Optional[Path] = None,
-    command: Optional[str] = None,
-    vault: Optional[str] = None,
+    home: Path | None = None,
+    command: str | None = None,
+    vault: str | None = None,
     dry_run: bool = False,
     force: bool = False,
     platform: str = sys.platform,

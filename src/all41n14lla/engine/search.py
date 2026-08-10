@@ -7,25 +7,30 @@ lower-is-better by convention).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from all41n14lla.engine.nodes import MemoryNode, NodeType
 from all41n14lla.engine.storage import Storage
 
 
 def _sanitize(query: str) -> str:
-    """Quote each term as its own FTS5 phrase, joined by FTS5's implicit AND.
+    """Quote each term as its own FTS5 phrase, joined by ``OR`` (recall-oriented).
 
     Quoting neutralizes FTS5 query operators (``AND``/``OR``/``NOT``/``NEAR``,
     ``-``, ``:``, ``*``, parentheses) so user text can never inject query
-    syntax. Joining the quoted terms with whitespace is FTS5's implicit AND:
-    every term must appear somewhere in the document, in ANY position.
+    syntax. Joining the quoted terms with ``OR`` makes a node matching ANY
+    query term a candidate; BM25 then ranks nodes that match more (and rarer)
+    terms higher, so a note containing every term still sorts to the top while
+    a note matching only some still surfaces below it.
 
-    The previous implementation wrapped the WHOLE query in one pair of quotes,
-    turning every multi-word query into a phrase match that required the terms
-    to be ADJACENT — so the README's own quickstart example
-    (``recall "sqlite tokenizer"`` against a note reading "sqlite fts5 uses
-    the porter tokenizer by default") returned zero matches.
+    This is the right default for a tool named ``recall``: a multi-word query
+    is a description, not a phrase. The earlier implementation joined terms
+    with FTS5's implicit AND (every term required in one note), which silently
+    returned ``[]`` for natural recall queries whose words are spread across
+    different notes — e.g. ``recall "Jordan career professional"`` never
+    surfaced the professional-identity concept because no single note held all
+    three words. (An even earlier version required the terms to be ADJACENT.)
+    OR + BM25 ranking fixes both; single-term queries are unaffected (one term,
+    no ``OR``).
 
     Terms with no alphanumeric characters tokenize to nothing (an empty FTS5
     phrase is a syntax error), so they are dropped.
@@ -35,13 +40,13 @@ def _sanitize(query: str) -> str:
         term = raw.replace('"', "")
         if any(ch.isalnum() for ch in term):
             terms.append(f'"{term}"')
-    return " ".join(terms)
+    return " OR ".join(terms)
 
 
 def search(
     storage: Storage,
     query: str,
-    node_type: Optional[NodeType] = None,
+    node_type: NodeType | None = None,
     limit: int = 10,
 ) -> list[tuple[MemoryNode, float]]:
     """Return (node, score) pairs ranked by FTS5 relevance. Higher score = better match."""

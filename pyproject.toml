@@ -33,7 +33,7 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "mcp>=0.9.0",
+  "mcp>=0.9.0,<2.0.0",
   "typer>=0.12.0",
   "pyyaml>=6.0",
   "python-frontmatter>=1.1.0",
@@ -67,6 +67,11 @@ pythonpath = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint.flake8-bugbear]
+# typer's idiomatic pattern puts Option()/Argument() calls in defaults; they
+# are evaluated once at import and are immutable in practice.
+extend-immutable-calls = ["typer.Option", "typer.Argument", "all41n14lla.cli._vault_option"]
 
 [tool.mypy]
 python_version = "3.11"

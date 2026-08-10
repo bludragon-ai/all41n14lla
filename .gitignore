@@ -23,3 +23,11 @@ coverage.xml
 
 .DS_Store
 *.swp
+
+# local vault-router shims (private house paths — never publish)
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+
+# verified-recall benchmark output — truncated vault content carries PII, never commit (2026-08-10)
+/benchmarks/verified_recall_report.json
