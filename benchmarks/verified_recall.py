@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 import time
 from pathlib import Path
@@ -21,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from all41n14lla.engine.retrieval import retrieve          # noqa: E402
 from all41n14lla.engine.storage import Storage, default_db_path  # noqa: E402
 from all41n14lla.engine.verify import verify_hits          # noqa: E402
+from all41n14lla.redact import redact                     # noqa: E402
 
 # 20 queries a real caller actually asks this brain — not synthetic keyword probes.
 QUERIES = [
@@ -82,7 +82,7 @@ def main() -> int:
             "raw": len(hits),
             "kept": len(kept),
             "verified": verified,
-            "dropped": [{"id": h["id"], "content": _redact(h["content"])[:180]} for h in dropped],
+            "dropped": [{"id": h["id"], "content": redact(h["content"])[:180]} for h in dropped],
         })
         print(f"{q!r:52} raw={len(hits):2} kept={len(kept):2} dropped={len(dropped):2} ok={verified}")
 
@@ -102,27 +102,10 @@ def main() -> int:
     return 0
 
 
-_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
-# Long digit runs (card/account numbers) — masked first so a phone-shaped
-# number never swallows them.
-_DIGIT_RUN_RE = re.compile(r"\d{10,}")
-# Phone-ish: US (415) 555-0132 / 415-555-0132, or +country international.
-_PHONE_RE = re.compile(
-    r"(?<!\d)(?:\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}|\+\d{1,3}[\d\s.\-]{6,}\d)(?!\d)"
-)
-
-
-def _redact(text: str) -> str:
-    """Scrub high-signal PII classes from a report excerpt (defense-in-depth)."""
-    text = _DIGIT_RUN_RE.sub("[digits]", text)
-    text = _EMAIL_RE.sub("[email]", text)
-    return _PHONE_RE.sub("[phone]", text)
-
-
 def _self_test_redact() -> None:
     """Regression check — the scrub must actually bite on every class."""
     sample = "call (415) 555-0132 or me@example.com, card 4111111111111111"
-    out = _redact(sample)
+    out = redact(sample)
     assert "[phone]" in out and "[email]" in out and "[digits]" in out
     assert "me@example.com" not in out and "555-0132" not in out and "4111111111111111" not in out
 
