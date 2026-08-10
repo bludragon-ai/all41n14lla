@@ -7,7 +7,6 @@ lower-is-better by convention).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from all41n14lla.engine.nodes import MemoryNode, NodeType
 from all41n14lla.engine.storage import Storage
@@ -47,7 +46,7 @@ def _sanitize(query: str) -> str:
 def search(
     storage: Storage,
     query: str,
-    node_type: Optional[NodeType] = None,
+    node_type: NodeType | None = None,
     limit: int = 10,
 ) -> list[tuple[MemoryNode, float]]:
     """Return (node, score) pairs ranked by FTS5 relevance. Higher score = better match."""

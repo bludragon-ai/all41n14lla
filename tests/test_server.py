@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from all41n14lla.engine.storage import NODE_FOLDERS, default_db_path, Storage
+from all41n14lla.engine.storage import NODE_FOLDERS, Storage, default_db_path
 
 
 def _make_vault(root: Path) -> Path:

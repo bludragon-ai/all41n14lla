@@ -143,7 +143,7 @@ def run() -> None:
     print(f"constraint recall@{TOP_K} under {NOISE_PER_SCENARIO}-episode noise — {n} scenarios (seed {SEED})")
     print(f"{'query':<28} {'phrase-in-rule':<15} {'BM25 top-5':<11} floor")
     for query, pir, b, f in rows:
-        print(f"{query:<28} {str(pir):<15} {'HIT' if b else 'miss':<11} {'HIT' if f else 'miss'}")
+        print(f"{query:<28} {pir!s:<15} {'HIT' if b else 'miss':<11} {'HIT' if f else 'miss'}")
     print("-" * 64)
     print(f"baseline (pure BM25):        {baseline_hits}/{n}  ({100 * baseline_hits / n:.0f}%)")
     print(f"deterministic floor:         {floor_hits}/{n}  ({100 * floor_hits / n:.0f}%)")

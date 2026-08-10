@@ -17,13 +17,15 @@ never block writers. The class is a context manager; open it, do work, close it.
 """
 from __future__ import annotations
 
+import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
+from typing import Self
+
+logger = logging.getLogger(__name__)
 
 from all41n14lla.engine.nodes import MemoryNode, NodeType
-
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS nodes (
@@ -69,9 +71,9 @@ class Storage:
 
     def __init__(self, db_path: Path):
         self.db_path = Path(db_path)
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
 
-    def __enter__(self) -> "Storage":
+    def __enter__(self) -> Self:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -129,12 +131,12 @@ class Storage:
         self.conn.commit()
         return cur.rowcount > 0
 
-    def get_node_row(self, node_id: str) -> Optional[sqlite3.Row]:
+    def get_node_row(self, node_id: str) -> sqlite3.Row | None:
         return self.conn.execute(
             "SELECT * FROM nodes WHERE id = ?", (node_id,)
         ).fetchone()
 
-    def list_nodes(self, node_type: Optional[NodeType] = None) -> list[sqlite3.Row]:
+    def list_nodes(self, node_type: NodeType | None = None) -> list[sqlite3.Row]:
         if node_type is not None:
             sql = "SELECT * FROM nodes WHERE type = ? ORDER BY updated DESC"
             return self.conn.execute(sql, (node_type.value,)).fetchall()
@@ -157,7 +159,8 @@ class Storage:
             for md_file in folder_path.glob("*.md"):
                 try:
                     node = MemoryNode.from_file(md_file)
-                except Exception:
+                except (OSError, KeyError, ValueError, TypeError) as exc:
+                    logger.debug("skipping unparsable memory %s: %s", md_file, exc)
                     continue
                 self.upsert_node(node)
                 seen.add(node.id)
@@ -185,7 +188,7 @@ class Storage:
         unique_ids = list(dict.fromkeys(node_ids))
         if len(unique_ids) < 2:
             return 0
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         pairs = [
             (min(a, b), max(a, b))
             for i, a in enumerate(unique_ids)

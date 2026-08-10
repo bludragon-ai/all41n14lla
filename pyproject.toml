@@ -68,6 +68,11 @@ pythonpath = ["src"]
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.lint.flake8-bugbear]
+# typer's idiomatic pattern puts Option()/Argument() calls in defaults; they
+# are evaluated once at import and are immutable in practice.
+extend-immutable-calls = ["typer.Option", "typer.Argument", "all41n14lla.cli._vault_option"]
+
 [tool.mypy]
 python_version = "3.11"
 

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -46,7 +45,7 @@ def _require_vault() -> Path:
     return vault
 
 
-def _resolve_node_type(name: Optional[str]) -> Optional[NodeType]:
+def _resolve_node_type(name: str | None) -> NodeType | None:
     if not name:
         return None
     try:
@@ -62,8 +61,8 @@ def _resolve_node_type(name: Optional[str]) -> Optional[NodeType]:
 def remember(
     type: str,
     content: str,
-    tags: Optional[list[str]] = None,
-    links: Optional[list[str]] = None,
+    tags: list[str] | None = None,
+    links: list[str] | None = None,
 ) -> dict:
     """Save a memory for future recall.
 
@@ -104,7 +103,7 @@ def remember(
 @mcp.tool()
 def recall(
     query: str,
-    type: Optional[str] = None,
+    type: str | None = None,
     limit: int = 10,
     verify: bool = False,
 ) -> list[dict]:
@@ -223,7 +222,7 @@ def inspect(query_or_id: str) -> dict:
             "SELECT id, path FROM nodes WHERE id LIKE ?", (f"{query_or_id}%",)
         ).fetchall()
 
-        node: Optional[MemoryNode] = None
+        node: MemoryNode | None = None
         if len(rows) == 1:
             target_path = Path(rows[0]["path"])
             if not target_path.exists():

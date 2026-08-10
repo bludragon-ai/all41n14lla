@@ -15,7 +15,7 @@ These tests PROVE the README's retrieval contract:
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -156,7 +156,7 @@ def test_untagged_constraint_not_floored(vault, storage):
 
 
 def test_decay_orders_same_relevance_episodes_by_age(vault, storage):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     fresh = _write(
         vault,
         storage,
@@ -188,7 +188,7 @@ def test_decay_orders_same_relevance_episodes_by_age(vault, storage):
 
 def test_pattern_decays_moderately_vs_episode(vault, storage):
     """At 60 days, a pattern (90d half-life, floored) outranks an episode twin."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     then = now - timedelta(days=60)
     episode = _write(
         vault,
@@ -327,7 +327,7 @@ def test_mtime_fallback_for_missing_created(vault, storage):
     import os
     import time
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     fresh = _write(
         vault,
         storage,

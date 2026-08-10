@@ -60,5 +60,5 @@ def verify_hits(query: str, hits: list[dict]) -> tuple[list[dict], bool]:
                 if h.get("floor") or _judge(client, query, h["content"])
             ]
         return kept, True
-    except Exception:  # ponytail: any failure degrades to unfiltered — by contract
+    except Exception:  # noqa: BLE001 — ponytail: any failure degrades to unfiltered, by contract
         return hits, False

@@ -1,10 +1,12 @@
 """all41n14lla CLI — Typer app."""
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 import typer
 from rich.console import Console
@@ -128,7 +130,8 @@ def _doctor_constraint_floor(storage: Storage) -> None:
         if p.exists():
             try:
                 constraints.append(MemoryNode.from_file(p))
-            except Exception:
+            except (OSError, KeyError, ValueError, TypeError) as exc:
+                logger.debug("skipping unparsable constraint %s: %s", p, exc)
                 continue
     console.print(
         f"[green]✓[/green] constraint floor: ACTIVE ({len(constraints)} constraints indexed)"
@@ -237,7 +240,7 @@ def remember(
 @app.command()
 def recall(
     query: str,
-    node_type: Optional[str] = typer.Option(
+    node_type: str | None = typer.Option(
         None, "--type", help="Restrict to a node type"
     ),
     limit: int = typer.Option(10, "--limit", help="Max results"),
@@ -332,7 +335,7 @@ def inspect(
             "SELECT id, path FROM nodes WHERE id LIKE ?", (f"{query_or_id}%",)
         ).fetchall()
 
-        node: Optional[MemoryNode] = None
+        node: MemoryNode | None = None
         if len(rows) == 1:
             target_path = Path(rows[0]["path"])
             if target_path.exists():
@@ -408,12 +411,12 @@ def wire(
         "--force",
         help="Replace an existing all41n14lla entry that differs (JSON clients only).",
     ),
-    command: Optional[str] = typer.Option(
+    command: str | None = typer.Option(
         None,
         "--command",
         help="Server command to write. Default: absolute path of the installed binary.",
     ),
-    vault: Optional[Path] = typer.Option(
+    vault: Path | None = typer.Option(
         None,
         "--vault",
         "-v",

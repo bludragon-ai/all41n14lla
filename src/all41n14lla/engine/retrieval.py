@@ -31,9 +31,8 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 from all41n14lla.engine.nodes import MemoryNode, NodeType
 from all41n14lla.engine.search import search as fts_search
@@ -77,11 +76,11 @@ def _age_days(node: MemoryNode, now: datetime) -> float:
     """
     created = node.created
     if created.tzinfo is None:
-        created = created.replace(tzinfo=timezone.utc)
+        created = created.replace(tzinfo=UTC)
     if node.path is not None:
         try:
             mtime = datetime.fromtimestamp(
-                Path(node.path).stat().st_mtime, tz=timezone.utc
+                Path(node.path).stat().st_mtime, tz=UTC
             )
             fresh_created = created > now - timedelta(seconds=120)
             much_older_file = mtime < created - timedelta(seconds=120)
@@ -163,9 +162,9 @@ def _constraint_floor(
 def retrieve(
     storage: Storage,
     query: str,
-    node_type: Optional[NodeType] = None,
+    node_type: NodeType | None = None,
     limit: int = 10,
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> RetrievalResult:
     """Type-aware retrieval: constraint floor first, then rescored lexical hits.
 
@@ -175,7 +174,7 @@ def retrieve(
     non-constraint type, the caller has explicitly scoped the recall and the
     floor is not injected.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     query_tokens = _tokenize(query)
 
     floor: list[tuple[MemoryNode, float]] = []

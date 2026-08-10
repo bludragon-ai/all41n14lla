@@ -10,9 +10,11 @@ server process terminates.
 """
 from __future__ import annotations
 
+import logging
 import threading
 from pathlib import Path
-from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -49,7 +51,8 @@ class VaultEventHandler(FileSystemEventHandler):
         with self._lock:
             try:
                 node = MemoryNode.from_file(path)
-            except Exception:
+            except (OSError, KeyError, ValueError, TypeError) as exc:
+                logger.debug("skipping unparsable memory %s: %s", path, exc)
                 return
             with Storage(self.db_path) as storage:
                 storage.upsert_node(node)
@@ -57,13 +60,12 @@ class VaultEventHandler(FileSystemEventHandler):
     def _delete(self, path: Path) -> None:
         # We only know the path; the node id lives inside the file, which is
         # gone. Scan the index for rows whose path matches and drop them.
-        with self._lock:
-            with Storage(self.db_path) as storage:
-                rows = storage.conn.execute(
-                    "SELECT id FROM nodes WHERE path = ?", (str(path),)
-                ).fetchall()
-                for row in rows:
-                    storage.delete_node(row["id"])
+        with self._lock, Storage(self.db_path) as storage:
+            rows = storage.conn.execute(
+                "SELECT id FROM nodes WHERE path = ?", (str(path),)
+            ).fetchall()
+            for row in rows:
+                storage.delete_node(row["id"])
 
     def on_created(self, event: FileSystemEvent) -> None:
         if event.is_directory:
@@ -98,7 +100,7 @@ class VaultEventHandler(FileSystemEventHandler):
             self._upsert(dst)
 
 
-def start_observer(vault: Path) -> Optional[BaseObserver]:
+def start_observer(vault: Path) -> BaseObserver | None:
     """Start a recursive observer on the vault. Returns the observer (or None
     if the vault does not exist).
 
