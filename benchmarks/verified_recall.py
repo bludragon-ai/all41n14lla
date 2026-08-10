@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -48,6 +49,7 @@ LIMIT = 10
 
 
 def main() -> int:
+    _self_test_redact()  # PII scrub regression check — fail before any query
     vault = Path(os.environ["ALL41N14LLA_VAULT"]).expanduser()
     db = default_db_path(vault)
     report = []
@@ -69,12 +71,18 @@ def main() -> int:
 
         kept_ids = {h["id"] for h in kept}
         dropped = [h for h in hits if h["id"] not in kept_ids]
+        # Report excerpts are LOCAL adjudication aids only — they are truncated
+        # vault content and may carry PII (emails, phone numbers). They must
+        # never be committed: benchmarks/verified_recall_report.json is in
+        # .gitignore as the mechanical gate. Belt-and-suspenders: scrub the
+        # highest-signal PII classes here too, so even a forced `git add -f`
+        # cannot publish them.
         report.append({
             "query": q,
             "raw": len(hits),
             "kept": len(kept),
             "verified": verified,
-            "dropped": [{"id": h["id"], "content": h["content"][:180]} for h in dropped],
+            "dropped": [{"id": h["id"], "content": _redact(h["content"])[:180]} for h in dropped],
         })
         print(f"{q!r:52} raw={len(hits):2} kept={len(kept):2} dropped={len(dropped):2} ok={verified}")
 
@@ -92,6 +100,31 @@ def main() -> int:
     out.write_text(json.dumps(report, indent=2))
     print(f"\ndrops written to {out} — adjudicate each: was it really irrelevant?")
     return 0
+
+
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+# Long digit runs (card/account numbers) — masked first so a phone-shaped
+# number never swallows them.
+_DIGIT_RUN_RE = re.compile(r"\d{10,}")
+# Phone-ish: US (415) 555-0132 / 415-555-0132, or +country international.
+_PHONE_RE = re.compile(
+    r"(?<!\d)(?:\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}|\+\d{1,3}[\d\s.\-]{6,}\d)(?!\d)"
+)
+
+
+def _redact(text: str) -> str:
+    """Scrub high-signal PII classes from a report excerpt (defense-in-depth)."""
+    text = _DIGIT_RUN_RE.sub("[digits]", text)
+    text = _EMAIL_RE.sub("[email]", text)
+    return _PHONE_RE.sub("[phone]", text)
+
+
+def _self_test_redact() -> None:
+    """Regression check — the scrub must actually bite on every class."""
+    sample = "call (415) 555-0132 or me@example.com, card 4111111111111111"
+    out = _redact(sample)
+    assert "[phone]" in out and "[email]" in out and "[digits]" in out
+    assert "me@example.com" not in out and "555-0132" not in out and "4111111111111111" not in out
 
 
 if __name__ == "__main__":
