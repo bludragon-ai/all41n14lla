@@ -161,10 +161,15 @@ def _wire_json(client: Client, block: dict, dry_run: bool, force: bool) -> WireR
             'mcpServers is not an object — refusing to overwrite it '
             "(fix or remove the value, then rerun)",
         )
+    # A PRESENT entry is a conflict even when its value is null: servers.get()
+    # collapses "missing" and "explicit null" to None, so the presence check
+    # must use `in` to keep an explicit null from being silently replaced
+    # (greptile P1 2026-08-10, same family as the section-level null above).
+    present = SERVER_NAME in servers
     existing = servers.get(SERVER_NAME)
     if existing == block:
         return WireResult(client.name, client.config, ALREADY)
-    if existing is not None and not force:
+    if present and not force:
         return WireResult(
             client.name,
             client.config,

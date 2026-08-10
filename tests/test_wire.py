@@ -199,6 +199,25 @@ def test_non_object_mcp_servers_is_refused_not_clobbered(home: Path):
     assert results["Cursor"].status == WIRED
 
 
+def test_null_server_entry_is_conflict_not_silent_overwrite(home: Path):
+    # greptile P1 2026-08-10 (second pass): "mcpServers": {"all41n14lla": null}
+    # is a PRESENT entry, but servers.get() collapses missing and null to None,
+    # so the old code treated it as absent and overwrote it without --force,
+    # reporting success. Same data-loss family as the section-level null.
+    original = '{"mcpServers": {"all41n14lla": null, "other": {}}, "theme": "dark"}'
+    (home / ".claude.json").write_text(original, encoding="utf-8")
+    results = {r.client: r for r in wire_all(home=home, command=CMD, platform="darwin")}
+    assert results["Claude Code"].status == CONFLICT
+    assert (home / ".claude.json").read_text(encoding="utf-8") == original  # untouched
+    assert not (home / (".claude.json" + BACKUP_SUFFIX)).exists()  # never wrote
+    # --force still replaces the null entry (conflicts are overridable)
+    forced = {r.client: r for r in wire_all(home=home, command=CMD, platform="darwin", force=True)}
+    assert forced["Claude Code"].status == WIRED
+    data = json.loads((home / ".claude.json").read_text(encoding="utf-8"))
+    assert isinstance(data["mcpServers"]["all41n14lla"], dict)
+    assert data["mcpServers"]["other"] == {}  # unrelated entries preserved
+
+
 def test_backup_written_before_modification(home: Path):
     original = (home / ".claude.json").read_bytes()
     wire_all(home=home, command=CMD, platform="darwin")
