@@ -31,3 +31,6 @@ coverage.xml
 
 # verified-recall benchmark output — truncated vault content carries PII, never commit (2026-08-10)
 /benchmarks/verified_recall_report.json
+
+# regenerable knowledge-graph output (leaks absolute /Users paths in cache)
+graphify-out/
