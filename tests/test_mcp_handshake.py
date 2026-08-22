@@ -100,4 +100,7 @@ def test_tools_list_round_trip() -> None:
         _close(proc)
     assert resp["id"] == 2
     tools = {t["name"] for t in resp["result"]["tools"]}
-    assert tools == {"remember", "recall", "inspect", "forget", "consolidate"}
+    assert tools == {
+        "remember", "recall", "inspect", "forget", "consolidate",
+        "identity", "guard_output",
+    }

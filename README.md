@@ -1,7 +1,7 @@
 # all41n14lla
 
 > [!NOTE]
-> **Disambiguation:** This directory is the source repository for the `all41n14lla` PyPI package (the MCP memory server). It is completely separate from J's personal Obsidian knowledge base / vault located at `~/all41n14lla/`.
+> **Disambiguation:** This directory is the source repository for the `all41n14lla` PyPI package (the MCP memory server). It is completely separate from J's personal Obsidian knowledge base / vault located at `~/all41n14lla/` — informally nicknamed "noir" in conversation precisely to avoid this confusion. Same underlying idea, different scope: this package is the generic, empty engine anyone can install; the vault is J's own populated instance of it, full of his real data.
 
 Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 
@@ -10,7 +10,7 @@ Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 [![Python](https://img.shields.io/pypi/pyversions/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Status:** `v0.1.0` (stable, on PyPI) + type-aware retrieval and `wire` landed in main (unreleased). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
+> **Status:** `v0.1.0` (stable, on PyPI) + type-aware retrieval, `wire`, an optional persona/`identity` layer, and a `guard_output` repetition guard have landed in main (unreleased). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
 
 ## The problem
 
@@ -70,6 +70,21 @@ The default vault is `~/.all41n14lla/` — a hidden per-user dotfile. Pass `--pa
 
 Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (stub, lands in v0.2), `wire` (auto-configure MCP clients), `version`, `serve`.
 
+## Optional persona
+
+A vault works with no persona at all — this is opt-in, not required.
+
+```bash
+all41n14lla init --path ~/memory --name "Nimbus" --address "Master" --tone "serene and direct"
+all41n14lla persona --vault ~/memory     # print the persona back
+```
+
+This writes `PERSONA.md` into the vault and exposes it over MCP as the `identity` tool, which any attached client can call at session start to pick up the voice, the address, and the tone — without hardcoding a personality into the client itself. `identity` returns `{"vault": str, "persona": str | null}`; a vault with no persona set just returns `null`, and the client falls back to speaking plainly.
+
+## Repetition guard
+
+The `guard_output` MCP tool cuts a model's streamed output the moment a sentence or list item substantially repeats something already said in the same response — the failure mode local/smaller models hit more often than frontier ones. It uses normalized sequence and word-overlap similarity (default threshold `0.82`) and returns `{text, loop_detected, match}`; `text` is everything safe to keep. Tune it at server start: `all41n14lla serve --repetition-threshold 0.9 --repetition-window-chars 200`, or turn it off entirely with `--no-repetition-guard`. This is a runtime cutoff, not a fine-tuning fix — it stops a detected loop and preserves the usable output generated before it. The underlying `RepetitionGuard`/`guard_text`/`guard_stream` helpers in `all41n14lla.guard` work standalone too, outside any MCP client.
+
 ## Client config
 
 `all41n14lla wire` writes all of this for you (and `wire --dry-run` shows you exactly what it would write). To wire a client by hand instead, this is the shape.
@@ -97,7 +112,7 @@ args = ["serve"]
 
 Using a non-default vault? Add an env entry — `"env": {"ALL41N14LLA_VAULT": "/path/to/vault"}` in JSON, or an `[mcp_servers.all41n14lla.env]` table with `ALL41N14LLA_VAULT = "/path/to/vault"` in TOML. If a client launches with a restricted PATH (Claude Desktop does), use the absolute binary path from `which all41n14lla` as `command` — `wire` does this automatically.
 
-Transport is stdio. One process, one client. The server exposes `remember`, `recall`, `forget`, `inspect`, and `consolidate` as MCP tools.
+Transport is stdio. One process, one client. The server exposes `remember`, `recall`, `forget`, `inspect`, `consolidate`, `identity`, and `guard_output` as MCP tools.
 
 ## Comparison
 

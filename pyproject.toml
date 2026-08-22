@@ -60,6 +60,12 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# Pre-existing gap fixed alongside the persona addition: templates/ had no
+# __init__.py and no package-data entry, so nothing under it (including the
+# starter-pack content) was actually bundled into the built wheel.
+all41n14lla = ["templates/*.md", "templates/starter-pack/**"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

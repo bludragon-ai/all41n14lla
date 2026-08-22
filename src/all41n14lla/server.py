@@ -25,8 +25,22 @@ from all41n14lla.engine.storage import (
     default_db_path,
     folder_for,
 )
+from all41n14lla.guard import RepetitionGuard
+from all41n14lla.persona import persona_text
 
-mcp = FastMCP("all41n14lla")
+mcp = FastMCP(
+    "all41n14lla",
+    instructions=(
+        "If the vault has a persona (call identity first to check), follow it. "
+        "Recall relevant memory before answering, remember durable user facts, "
+        "preferences, decisions, events, and rules, and use guard_output on "
+        "streamed model text when repetition protection is enabled."
+    ),
+)
+
+_guard_enabled = True
+_guard_threshold = 0.82
+_guard_window_chars = 150
 
 
 def _vault_path() -> Path:
@@ -43,6 +57,33 @@ def _require_vault() -> Path:
             "or set ALL41N14LLA_VAULT to an existing vault path."
         )
     return vault
+
+
+@mcp.tool()
+def identity() -> dict:
+    """Return this vault's persona, if one has been set. Call at session start.
+
+    A vault works with no persona at all — this returns
+    ``{"vault": str, "persona": None}`` in that case, which the client should
+    treat as "no special voice, just the memory tools."
+    """
+    vault = _require_vault()
+    return {"vault": str(vault), "persona": persona_text(vault)}
+
+
+@mcp.tool()
+def guard_output(chunks: list[str]) -> dict:
+    """Cut repeated model output using the configured streaming repetition guard.
+
+    Feed streamed text chunks through this to detect and stop a model loop
+    before it repeats itself into a wall of near-duplicate output. Returns
+    ``{text, loop_detected, match}`` — ``text`` is everything safe to keep.
+    """
+    if not _guard_enabled:
+        return {"text": "".join(chunks), "loop_detected": False, "match": None}
+    guard = RepetitionGuard(threshold=_guard_threshold, window_chars=_guard_window_chars)
+    list(guard.feed(chunks))
+    return guard.result()
 
 
 def _resolve_node_type(name: str | None) -> NodeType | None:
@@ -274,14 +315,31 @@ def consolidate() -> dict:
     }
 
 
-def main() -> None:
+def main(
+    repetition_guard: bool = True,
+    repetition_threshold: float = 0.82,
+    repetition_window_chars: int = 150,
+) -> None:
     """Entry point for ``all41n14lla serve``.
 
     Starts a watchdog observer on the vault (if it exists) so hand-edits to
     markdown files land in the SQLite index live, then runs the MCP stdio
     server. Observer is stopped cleanly on shutdown.
     """
+    import logging
+
     from all41n14lla.watcher import start_observer
+
+    global _guard_enabled, _guard_threshold, _guard_window_chars
+    _guard_enabled = repetition_guard
+    _guard_threshold = repetition_threshold
+    _guard_window_chars = repetition_window_chars
+    logging.getLogger(__name__).info(
+        "Repetition guard %s (threshold=%.3f, window_chars=%d)",
+        "enabled" if repetition_guard else "disabled",
+        repetition_threshold,
+        repetition_window_chars,
+    )
 
     vault = _vault_path()
     observer = start_observer(vault) if vault.exists() else None

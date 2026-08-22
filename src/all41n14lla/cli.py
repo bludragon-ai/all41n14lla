@@ -22,6 +22,7 @@ from all41n14lla.engine.storage import (
     default_db_path,
     folder_for,
 )
+from all41n14lla.persona import Persona, persona_text, write_persona
 
 app = typer.Typer(
     name="all41n14lla",
@@ -76,14 +77,31 @@ def init(
         "-p",
         help="Where to create the vault. Default: ~/.all41n14lla/ (hidden dotfile).",
     ),
+    name: str = typer.Option(
+        None, "--name", help="Optional: give the AI a persona name (writes PERSONA.md)."
+    ),
+    address: str = typer.Option(
+        None, "--address", help="Optional: how the persona should address you. Requires --name."
+    ),
+    tone: str = typer.Option(
+        None, "--tone", help="Optional: the persona's tone, e.g. 'warm and direct'. Requires --name."
+    ),
 ) -> None:
-    """Scaffold a new memory vault."""
+    """Scaffold a new memory vault. Add --name/--address/--tone for an optional persona."""
     path = _resolve_vault(path)
     if path.exists() and any(path.iterdir()):
         console.print(
             f"[yellow]⚠ {path} exists and is not empty. Refusing to overwrite.[/yellow]"
         )
         raise typer.Exit(1)
+
+    persona_fields = {"name": name, "address": address, "tone": tone}
+    provided = {k: v for k, v in persona_fields.items() if v}
+    if provided and len(provided) != 3:
+        missing = ", ".join(f"--{k}" for k, v in persona_fields.items() if not v)
+        console.print(f"[red]A persona needs all three flags. Missing: {missing}[/red]")
+        raise typer.Exit(1)
+
     for folder in NODE_FOLDERS:
         (path / folder).mkdir(parents=True, exist_ok=True)
     (path / ".all41n14lla").mkdir(exist_ok=True)
@@ -100,15 +118,51 @@ def init(
     # Touch the index so `doctor` reports it healthy even before the first write.
     with Storage(default_db_path(path)):
         pass
-    console.print(f"[green]✓ Vault initialized at {path}[/green]")
+
+    if provided:
+        write_persona(path, Persona(name=name, address=address, tone=tone))
+        console.print(f"[green]✓ Vault initialized at {path} with persona '{name}'[/green]")
+    else:
+        console.print(f"[green]✓ Vault initialized at {path}[/green]")
 
 
 @app.command()
-def serve() -> None:
+def persona(vault: Path = _vault_option()) -> None:
+    """Print the vault's persona, if one has been set."""
+    vault = _resolve_vault(vault)
+    text = persona_text(vault)
+    if text is None:
+        console.print(
+            "[yellow]No persona set for this vault.[/yellow] "
+            "Run `all41n14lla init --name ... --address ... --tone ...` on a fresh vault, "
+            "or write PERSONA.md into it directly."
+        )
+        raise typer.Exit(1)
+    console.print(text)
+
+
+@app.command()
+def serve(
+    repetition_guard: bool = typer.Option(
+        True,
+        "--repetition-guard/--no-repetition-guard",
+        help="Cut detected output loops via the guard_output tool. On by default.",
+    ),
+    repetition_threshold: float = typer.Option(
+        0.82, "--repetition-threshold", help="Similarity ratio (0-1) that counts as a repeat."
+    ),
+    repetition_window_chars: int = typer.Option(
+        150, "--repetition-window-chars", help="Trailing-character window compared for similarity."
+    ),
+) -> None:
     """Run the MCP stdio server."""
     from all41n14lla.server import main
 
-    main()
+    main(
+        repetition_guard=repetition_guard,
+        repetition_threshold=repetition_threshold,
+        repetition_window_chars=repetition_window_chars,
+    )
 
 
 def _doctor_constraint_floor(storage: Storage) -> None:

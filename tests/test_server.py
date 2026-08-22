@@ -102,3 +102,39 @@ def test_vault_env_var_overrides_default(tmp_path: Path, monkeypatch):
     target.mkdir()
     monkeypatch.setenv("ALL41N14LLA_VAULT", str(target))
     assert _vault_path() == target.resolve()
+
+
+def test_identity_returns_none_persona_when_unset(scratch_vault: Path):
+    from all41n14lla.server import identity
+
+    result = identity()
+    assert result["vault"] == str(scratch_vault)
+    assert result["persona"] is None
+
+
+def test_identity_returns_persona_when_set(scratch_vault: Path):
+    from all41n14lla.persona import Persona, write_persona
+    from all41n14lla.server import identity
+
+    write_persona(scratch_vault, Persona("Aster", "Captain", "warm and direct"))
+
+    result = identity()
+    assert result["persona"] is not None
+    assert "Aster" in result["persona"]
+
+
+def test_guard_output_passes_non_repetitive_text(scratch_vault: Path):
+    from all41n14lla.server import guard_output
+
+    result = guard_output(chunks=["This is one sentence. ", "This is a different one."])
+    assert result["loop_detected"] is False
+    assert "different one" in result["text"]
+
+
+def test_guard_output_cuts_immediate_repeat(scratch_vault: Path):
+    from all41n14lla.server import guard_output
+
+    repeated = "This short sentence repeats immediately. "
+    result = guard_output(chunks=[repeated, repeated])
+    assert result["loop_detected"] is True
+    assert result["match"] is not None
