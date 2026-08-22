@@ -16,8 +16,11 @@ def _sanitize(query: str) -> str:
     """Quote each term as its own FTS5 phrase, joined by ``OR`` (recall-oriented).
 
     Quoting neutralizes FTS5 query operators (``AND``/``OR``/``NOT``/``NEAR``,
-    ``-``, ``:``, ``*``, parentheses) so user text can never inject query
-    syntax. Joining the quoted terms with ``OR`` makes a node matching ANY
+    ``-``, ``:``, parentheses) so user text can never inject query syntax.
+    One documented exception: a trailing ``*`` inside a quoted phrase is still
+    FTS5's prefix operator, so ``deploy*`` matches tokens starting with
+    "deploy" rather than the literal string — harmless for recall (a superset
+    of the literal match) and kept as-is. Joining the quoted terms with ``OR`` makes a node matching ANY
     query term a candidate; BM25 then ranks nodes that match more (and rarer)
     terms higher, so a note containing every term still sorts to the top while
     a note matching only some still surfaces below it.
