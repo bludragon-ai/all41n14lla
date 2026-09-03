@@ -8,3 +8,4 @@ New here? Start with **[quickstart-claude-desktop.md](quickstart-claude-desktop.
 - [savant-cognition.md](savant-cognition.md) — the longer origin story: typed, pattern-indexed, never-degrading memory, grounded in a survey of 60+ agent-memory tools.
 - [quickstart-claude-desktop.md](quickstart-claude-desktop.md) — five-minute install-to-working guide for Claude Desktop.
 - [demo-script.md](demo-script.md) — the walkthrough script for the demo.
+- **[demo-reincarnation.md](demo-reincarnation.md)** — the 90-second `v0.2.0` demo: reincarnate → devour → recall → evolve, all real output.

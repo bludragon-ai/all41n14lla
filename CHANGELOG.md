@@ -1,4 +1,4 @@
-## Unreleased
+## 0.2.0 — 2026-09-03
 
 ### Added
 - `all41n14lla reincarnate` — interactive first run. Eight plain questions; answers become the
