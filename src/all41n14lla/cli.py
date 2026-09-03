@@ -23,6 +23,8 @@ from all41n14lla.engine.storage import (
     folder_for,
 )
 from all41n14lla.persona import Persona, persona_text, write_persona
+from all41n14lla.reincarnate import QUESTIONS, load_answers
+from all41n14lla.reincarnate import reincarnate as _reincarnate
 
 app = typer.Typer(
     name="all41n14lla",
@@ -124,6 +126,35 @@ def init(
         console.print(f"[green]✓ Vault initialized at {path} with persona '{name}'[/green]")
     else:
         console.print(f"[green]✓ Vault initialized at {path}[/green]")
+
+
+@app.command()
+def reincarnate(
+    path: Path = typer.Option(
+        DEFAULT_VAULT, "--path", "-p",
+        help="Where the vault is born. Default: ~/.all41n14lla/ (must be empty).",
+    ),
+    answers: Path = typer.Option(
+        None, "--answers", "-a",
+        help="JSON file of answers (question key → text) for a non-interactive rebirth.",
+    ),
+) -> None:
+    """Interactive first-run: your last thoughts become the assistant's first skills."""
+    if answers is not None:
+        given = load_answers(answers)
+    else:
+        console.print("[dim]Your last thoughts decide what you wake up with. One line each; Enter skips.[/dim]\n")
+        given = {}
+        total = len(QUESTIONS)
+        for i, q in enumerate(QUESTIONS, 1):
+            console.print(f"[bold]{i}/{total}[/bold]  {q.prompt}  [dim]({q.hint})[/dim]")
+            given[q.key] = typer.prompt("  ›", default="", show_default=False)
+        console.print()
+    try:
+        _reincarnate(path, given, say=console.print)
+    except FileExistsError as exc:
+        console.print(f"[yellow]⚠ {exc}[/yellow]")
+        raise typer.Exit(1)
 
 
 @app.command()

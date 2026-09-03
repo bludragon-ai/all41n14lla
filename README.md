@@ -24,6 +24,42 @@ Memory should live where you can read it, back it up, grep it, diff it in git, a
 
 **Where it's going:** memory built like a brain — the literal ledger you have today (exact, auditable), plus an associative hemisphere (v0.2) that recalls by meaning, the two cross-auditing each other so the memory notices when it disagrees with itself. Design: [docs/TWO-BRAINS.md](docs/TWO-BRAINS.md) · Elevator answers: [docs/PITCH.md](docs/PITCH.md)
 
+## Reincarnation — the setup
+
+In the first episode of *That Time I Got Reincarnated as a Slime*, the protagonist dies and every
+stray last thought is confirmed back to him as a skill: *"I don't want to feel pain"* becomes
+`[Resist Pain]`; *"I want to be wise"* becomes `[Great Sage]`. He wakes in a dark cave with those
+skills and a voice that answers when asked.
+
+That is what a first run should be. Not "enter your name" — *what do you keep re-explaining, what
+must it never do, what are you trying to make happen.* `all41n14lla reincarnate` asks eight plain
+questions. Each answer becomes a memory the assistant is born with: the "never"s become
+**constraints** (they never decay and are always surfaced when relevant), the facts become
+**concepts**, and the name you give it brings the persona online.
+
+```
+$ all41n14lla reincarnate
+《Notice.》 Vital signs lost. Beginning reincarnation.
+《Confirmed.》 Unique skill [Great Sage] acquired. It answers to Nimbus.
+《Confirmed.》 Knowledge [Persistent Memory] acquired.
+《Confirmed.》 Skill [Resist Outbound] acquired.
+《Confirmed.》 Skill [Resist Deletion] acquired.
+《Confirmed.》 Knowledge [North Star] acquired.
+《Confirmed.》 Skill [Working Shape] acquired.
+《Confirmed.》 Extra skill [Predator] available. Nothing is devoured without consent.
+《Report.》 You wake in a cave. It is dark. Nimbus is online.
+Vault: ~/.all41n14lla · 6 memories. Next: `all41n14lla wire` connects Nimbus to every AI on this machine.
+```
+
+Three promises, each one a test in `tests/test_reincarnate.py`:
+
+- **Nothing is invented.** An unanswered question yields no memory. The transcript says *skipped, not invented*.
+- **Nothing is read from your disk.** Reincarnation writes only what you typed. Ingesting your files is a separate, consent-scoped act.
+- **Every line is backed by a file** you can open: one markdown file per skill, plus the birth itself as the first episode, linked to all of them.
+
+Non-interactive: `all41n14lla reincarnate --answers answers.json` (a JSON object keyed by
+`reexplain`, `never_without_asking`, `never_touch`, `north_star`, `wears_out`, `address`, `tone`, `name`).
+
 ## How it works
 
 Four node types, one vault, type-aware retrieval.
@@ -44,13 +80,13 @@ The constraint guarantee is **deterministic context injection, not a ranking**: 
 One command — install, create the vault, wire every MCP client you have:
 
 ```bash
-pipx install all41n14lla && all41n14lla init && all41n14lla wire
+pipx install all41n14lla && all41n14lla reincarnate && all41n14lla wire
 ```
 
 The same thing as three readable steps:
 
 1. **Install** — `pipx install all41n14lla` (verify: `all41n14lla version`)
-2. **Create the vault** — `all41n14lla init` (scaffolds `~/.all41n14lla/`)
+2. **Reincarnate** — `all41n14lla reincarnate` asks eight plain questions and your answers become the assistant's first memories (or `all41n14lla init` for an empty vault, no questions)
 3. **Wire your clients** — `all41n14lla wire` detects Claude Code, Claude Desktop, Cursor, Gemini CLI, and Codex CLI and adds the server to each config. Idempotent, backs up any config it touches, `--dry-run` previews without writing.
 
 > `wire` is in main, unreleased — on the released `0.1.0` wheel, paste the config block from [Client config](#client-config) instead.

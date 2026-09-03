@@ -1,3 +1,12 @@
+## Unreleased
+
+### Added
+- `all41n14lla reincarnate` — interactive first run. Eight plain questions; answers become the
+  assistant's first memories (constraints for the "never"s, concepts for the facts), the persona
+  comes online from the name/address/tone, and the birth is recorded as the first episode linked
+  to every skill. `--answers file.json` for a non-interactive rebirth. Nothing invented on an
+  empty answer; nothing read from disk. 11 tests.
+
 # Changelog
 
 All notable changes to `all41n14lla` will be documented in this file.
