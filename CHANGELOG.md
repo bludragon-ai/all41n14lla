@@ -15,6 +15,9 @@
 - `all41n14lla evolve` — read-only tier report (Sage → Great Sage → Wisdom King Raphael by
   episodes remembered) with what each tier may do. 3 tests.
 - Provenance fields `source` / `source_hash` on `MemoryNode`, round-tripped through frontmatter.
+- `all41n14lla forget --source <path|prefix|glob>` — verifiable erasure. Every forget (by id or
+  by source) now writes a receipt to `.all41n14lla/erasures/`: ids + content hashes, count, when,
+  and a re-scan proving zero remain. 5 tests.
 
 # Changelog
 

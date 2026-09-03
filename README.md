@@ -91,6 +91,28 @@ Every memory it writes carries `source` and `source_hash` in its own frontmatter
 this come from?* is answered by the file itself. A file already devoured, unchanged, is not
 proposed again.
 
+## Forget with a receipt — verifiable erasure
+
+Right-to-erasure is a request someone has to *answer*, not just perform. Every `forget` removes
+the file and the index rows, then writes a receipt into `.all41n14lla/erasures/` — what was
+deleted (ids and a hash of each content, so the receipt can vouch for what went without keeping
+it), how many, when, and a re-scan of the vault proving zero remain.
+
+```
+$ all41n14lla forget --source ./docs
+《Notice.》 3 memories from './docs':
+  concept    acc79fad  One and Done — the self-compounding memory design…
+  concept    1b7e02c3  What is all41n14lla? (the say-it-out-loud card)…
+  concept    9d40f5a1  Docs — New here? Start with…
+Erase them? [y/N]: y
+《Report.》 Erased 3. Re-scan for './docs': 0 remain. Receipt: ~/.all41n14lla/.all41n14lla/erasures/2026-09-03T09-12-40Z-docs.json
+```
+
+`--source` takes an exact path, a directory prefix, or a glob (`*.py`). With that, the four
+questions a reviewer asks all have an answer on your disk: **what does it know** (`evolve`),
+**where did each memory come from** (`source` in every devoured file), **who can see it** (only
+what you wired, on this machine), **can you prove you deleted it** (the receipt).
+
 ## Evolve — what it has become
 
 ```

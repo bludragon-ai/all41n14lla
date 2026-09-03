@@ -465,14 +465,37 @@ def recall(
 
 @app.command()
 def forget(
-    node_id: str,
+    node_id: str = typer.Argument(None, help="Node id (first 8 chars or full). Omit when using --source."),
+    source: str = typer.Option(
+        None, "--source", "-s",
+        help="Erase every memory devoured from this source path (exact, prefix, or glob) and get a receipt.",
+    ),
     confirm: bool = typer.Option(
         False, "--yes", "-y", help="Skip the confirmation prompt"
     ),
     vault: Path = _vault_option(),
 ) -> None:
-    """Delete a memory by id (first 8 chars of uuid, or full id)."""
+    """Delete a memory by id, or every memory from a --source. Every erasure writes a receipt."""
+    from all41n14lla.erase import erase, find_by_source
+
     vault = _resolve_vault(vault)
+    if source:
+        victims = find_by_source(vault, source)
+        if not victims:
+            console.print(f"[red]No memories carry source '{source}'.[/red]")
+            raise typer.Exit(1)
+        console.print(f"《Notice.》 {len(victims)} memor{'y' if len(victims) == 1 else 'ies'} from '{source}':")
+        for n in victims:
+            console.print(f"  {n.type.value:<10} {n.id[:8]}  {n.content[:70]}")
+        if not confirm and not typer.confirm("Erase them?"):
+            console.print("[yellow]Aborted. Nothing erased.[/yellow]")
+            raise typer.Exit(0)
+        r = erase(vault, victims, source=source)
+        console.print(
+            f"《Report.》 Erased {r.count}. Re-scan for '{source}': {r.remaining_after_rescan} remain. "
+            f"Receipt: {r.path}"
+        )
+        return
     ident = (node_id or "").strip()
     if len(ident) < 8:
         console.print("[red]id must be at least the first 8 characters[/red]")
@@ -498,10 +521,14 @@ def forget(
             if not typer.confirm("Continue?"):
                 console.print("[yellow]Aborted.[/yellow]")
                 raise typer.Exit(0)
-        storage.delete_node(target_id)
-    if target_path.exists():
-        target_path.unlink()
-    console.print(f"[green]✓ Forgot[/green] {target_id[:8]}")
+    node = MemoryNode.from_file(target_path) if target_path.exists() else None
+    if node is None:
+        with Storage(default_db_path(vault)) as storage:
+            storage.delete_node(target_id)
+        console.print(f"[green]✓ Forgot[/green] {target_id[:8]} (file was already gone)")
+        return
+    r = erase(vault, [node], source=None)
+    console.print(f"[green]✓ Forgot[/green] {target_id[:8]} · receipt: {r.path}")
 
 
 @app.command()
