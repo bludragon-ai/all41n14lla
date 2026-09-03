@@ -32,3 +32,14 @@ def test_roundtrip(tmp_path: Path):
     assert loaded.links == ["abc-123"]
     assert loaded.stale is False
     assert loaded.decay == 0.0
+
+
+def test_provenance_roundtrip(tmp_path):
+    from all41n14lla.engine.nodes import MemoryNode, NodeType
+
+    n = MemoryNode(type=NodeType.CONCEPT, content="x", source="docs/a.md", source_hash="ab" * 32)
+    p = n.write(tmp_path / "c.md")
+    back = MemoryNode.from_file(p)
+    assert (back.source, back.source_hash) == ("docs/a.md", "ab" * 32)
+    plain = MemoryNode(type=NodeType.CONCEPT, content="y").write(tmp_path / "d.md")
+    assert "source" not in plain.read_text()

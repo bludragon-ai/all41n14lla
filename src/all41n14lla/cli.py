@@ -138,6 +138,9 @@ def reincarnate(
         None, "--answers", "-a",
         help="JSON file of answers (question key → text) for a non-interactive rebirth.",
     ),
+    wire: bool = typer.Option(
+        False, "--wire", help="After the rebirth, wire the vault into every MCP client on this machine.",
+    ),
 ) -> None:
     """Interactive first-run: your last thoughts become the assistant's first skills."""
     if answers is not None:
@@ -155,6 +158,99 @@ def reincarnate(
     except FileExistsError as exc:
         console.print(f"[yellow]⚠ {exc}[/yellow]")
         raise typer.Exit(1)
+    if wire:
+        from all41n14lla import wire as wiring
+
+        results = wiring.wire_all(vault=str(_resolve_vault(path)))
+        if not results:
+            console.print("[yellow]No known MCP clients detected — nothing wired.[/yellow]")
+        for r in results:
+            console.print(f"《Confirmed.》 {r.client}: {r.status} · {r.config}")
+
+
+@app.command()
+def devour(
+    target: Path = typer.Argument(..., help="ONE file or directory to analyze."),
+    accept: str = typer.Option(
+        None, "--accept",
+        help="Write candidates: 'all', or a list like '1,3,5' / '2-6'. Without it, nothing is written.",
+    ),
+    interactive: bool = typer.Option(
+        False, "--interactive", "-i", help="Ask y/n for each candidate."
+    ),
+    max_files: int = typer.Option(200, "--max-files", help="Stop reading after this many files."),
+    vault: Path = _vault_option(),
+) -> None:
+    """Predator: analyze one path and propose memories. Writes nothing until you accept."""
+    from all41n14lla.devour import analyze, consume, existing_source_hashes, parse_accept
+
+    vault = _resolve_vault(vault)
+    if not vault.exists():
+        console.print(f"[red]No vault at {vault}. Run `all41n14lla reincarnate` first.[/red]")
+        raise typer.Exit(1)
+    console.print(f"《Notice.》 Predator: analyzing {target} …")
+    try:
+        a = analyze(target, existing_source_hashes(vault), max_files=max_files)
+    except FileNotFoundError:
+        console.print(f"[red]No such path: {target}[/red]")
+        raise typer.Exit(1)
+    if not a.candidates:
+        console.print(
+            f"《Report.》 Nothing to gain. {a.files_read} file(s) read, {a.files_skipped} skipped, "
+            f"{a.already_devoured} already devoured."
+        )
+        return
+    table = Table(title=f"Predator — {len(a.candidates)} candidate(s) from {a.files_read} file(s)")
+    table.add_column("#", justify="right")
+    table.add_column("type")
+    table.add_column("preview", overflow="fold")
+    table.add_column("where", overflow="fold")
+    for i, c in enumerate(a.candidates, 1):
+        table.add_row(str(i), c.kind.value, (c.content[:110] + "…") if len(c.content) > 110 else c.content, c.where)
+    console.print(table)
+    if a.truncated:
+        console.print(f"[yellow]Stopped at {max_files} files; raise --max-files to read more.[/yellow]")
+    if interactive:
+        picks = [i for i, c in enumerate(a.candidates, 1) if typer.confirm(f"  devour #{i} [{c.skill}]?", default=False)]
+        if not picks:
+            console.print("《Report.》 Nothing devoured.")
+            return
+        written = consume(vault, a, picks, say=console.print)
+    elif accept is not None:
+        try:
+            picks = parse_accept(accept, len(a.candidates))
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(1)
+        written = consume(vault, a, picks, say=console.print)
+    else:
+        console.print(
+            "《Report.》 Nothing devoured. Re-run with [bold]--accept all[/bold] or "
+            "[bold]--accept 1,3,5[/bold] to consume, or [bold]-i[/bold] to choose one by one."
+        )
+        return
+    console.print(f"《Report.》 {len(written) - 1} memories gained; the meal is episode {written[-1].id[:8]}.")
+
+
+@app.command()
+def evolve(vault: Path = _vault_option()) -> None:
+    """What the assistant has become: counts, tier, and what that tier may do. Read-only."""
+    from all41n14lla.evolve import evolution
+
+    vault = _resolve_vault(vault)
+    if not vault.exists():
+        console.print(f"[red]No vault at {vault}.[/red]")
+        raise typer.Exit(1)
+    e = evolution(vault)
+    table = Table(title="Evolution")
+    table.add_column("memory")
+    table.add_column("count", justify="right")
+    for k in ("concepts", "patterns", "episodes", "constraints", "devoured"):
+        table.add_row(k, str(getattr(e, k)))
+    console.print(table)
+    console.print(f"《Report.》 Tier: [bold]{e.tier}[/bold] — {e.allowed}.")
+    if e.until_next is not None:
+        console.print(f"{e.until_next} more episode(s) to the next tier.")
 
 
 @app.command()

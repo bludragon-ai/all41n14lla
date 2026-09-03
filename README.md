@@ -60,6 +60,48 @@ Three promises, each one a test in `tests/test_reincarnate.py`:
 Non-interactive: `all41n14lla reincarnate --answers answers.json` (a JSON object keyed by
 `reexplain`, `never_without_asking`, `never_touch`, `north_star`, `wears_out`, `address`, `tone`, `name`).
 
+## Predator — devour a path, gain what it knows
+
+The second thing the slime learns: eat something, gain its abilities. But only what he chooses
+to eat. `all41n14lla devour <path>` reads **one** file or directory, proposes what it found as a
+numbered table, and **writes nothing until you accept**:
+
+```
+$ all41n14lla devour ./docs
+《Notice.》 Predator: analyzing ./docs …
+  #  type        preview                                           where
+  1  concept     Salon Ops — How the front desk runs when nobody…  README.md:1
+  2  constraint  Never text a client after 9pm.                    README.md:6
+  3  concept     app.py: Booking engine: one function, one calendar app.py:1
+《Report.》 Nothing devoured. Re-run with --accept all or --accept 1,3 to consume, or -i to choose one by one.
+
+$ all41n14lla devour ./docs --accept 1,2
+《Confirmed.》 Knowledge [Salon Ops] devoured · README.md:1
+《Confirmed.》 Skill [Salon Ops · rule] devoured · README.md:6
+《Report.》 2 memories gained; the meal is episode 3f1c9a2e.
+```
+
+What it proposes is deterministic and explainable — no model in the loop, so the same folder
+always yields the same table and the tests can pin it. Markdown: the title and first paragraph
+become a concept; every line that starts with *never / always / must not / do not* becomes a
+constraint. Code: the module docstring becomes a concept. Binaries, generated directories
+(`node_modules`, `dist`, `.git`, …) and files over 200 KB are skipped and counted, never read.
+
+Every memory it writes carries `source` and `source_hash` in its own frontmatter, so *where did
+this come from?* is answered by the file itself. A file already devoured, unchanged, is not
+proposed again.
+
+## Evolve — what it has become
+
+```
+$ all41n14lla evolve
+《Report.》 Tier: Great Sage — drafts and stages on its own; sends, spends, deletes, deploys stay yours.
+```
+
+Read-only. The tier is earned by episodes remembered (Sage → Great Sage at 10 → Wisdom King
+Raphael at 100) and the report says plainly what each tier may do. It is the mirror, not the
+dial — nothing widens on its own.
+
 ## How it works
 
 Four node types, one vault, type-aware retrieval.
@@ -87,7 +129,7 @@ The same thing as three readable steps:
 
 1. **Install** — `pipx install all41n14lla` (verify: `all41n14lla version`)
 2. **Reincarnate** — `all41n14lla reincarnate` asks eight plain questions and your answers become the assistant's first memories (or `all41n14lla init` for an empty vault, no questions)
-3. **Wire your clients** — `all41n14lla wire` detects Claude Code, Claude Desktop, Cursor, Gemini CLI, and Codex CLI and adds the server to each config. Idempotent, backs up any config it touches, `--dry-run` previews without writing.
+3. **Wire your clients** — `all41n14lla wire` (or `reincarnate --wire` to do both at once) detects Claude Code, Claude Desktop, Cursor, Gemini CLI, and Codex CLI and adds the server to each config. Idempotent, backs up any config it touches, `--dry-run` previews without writing.
 
 > `wire` is in main, unreleased — on the released `0.1.0` wheel, paste the config block from [Client config](#client-config) instead.
 

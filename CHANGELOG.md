@@ -5,7 +5,16 @@
   assistant's first memories (constraints for the "never"s, concepts for the facts), the persona
   comes online from the name/address/tone, and the birth is recorded as the first episode linked
   to every skill. `--answers file.json` for a non-interactive rebirth. Nothing invented on an
-  empty answer; nothing read from disk. 11 tests.
+  empty answer; nothing read from disk. 11 tests. `--wire` wires every MCP client after the birth.
+- `all41n14lla devour <path>` — Predator. Analyzes ONE file or directory and proposes memories as
+  a numbered table; writes nothing until `--accept all` / `--accept 1,3` / `-i`. Deterministic
+  rules (markdown title+paragraph → concept, never/always lines → constraint, code docstring →
+  concept); skips binaries, generated dirs, files > 200 KB. Every written node carries `source`
+  + `source_hash`; an unchanged file is never proposed twice. The meal is recorded as an episode
+  linked to what it gained. 8 tests.
+- `all41n14lla evolve` — read-only tier report (Sage → Great Sage → Wisdom King Raphael by
+  episodes remembered) with what each tier may do. 3 tests.
+- Provenance fields `source` / `source_hash` on `MemoryNode`, round-tripped through frontmatter.
 
 # Changelog
 

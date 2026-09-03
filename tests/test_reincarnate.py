@@ -129,3 +129,22 @@ def test_cli_refuses_non_empty_vault(tmp_path):
     result = CliRunner().invoke(app, ["reincarnate", "--path", str(vault), "--answers", str(answers)])
     assert result.exit_code == 1
     assert (vault / "keep.md").read_text() == "mine"
+
+
+def test_cli_wire_flag_calls_wire_all_without_touching_real_configs(tmp_path, monkeypatch):
+    import all41n14lla.wire as wiring
+
+    seen = {}
+
+    def fake_wire_all(**kw):
+        seen.update(kw)
+        return []
+
+    monkeypatch.setattr(wiring, "wire_all", fake_wire_all)
+    answers = tmp_path / "a.json"
+    answers.write_text(json.dumps(FULL))
+    vault = tmp_path / "v"
+    result = CliRunner().invoke(app, ["reincarnate", "--path", str(vault), "--answers", str(answers), "--wire"])
+    assert result.exit_code == 0, result.output
+    assert seen["vault"] == str(vault.resolve())
+    assert "nothing wired" in result.output

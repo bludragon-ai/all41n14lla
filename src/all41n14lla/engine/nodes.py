@@ -75,10 +75,15 @@ class MemoryNode:
     updated: datetime = field(default_factory=_now)
     stale: bool = False
     decay: float = 0.0
+    # Provenance (2026-09-03): where a devoured memory came from. None for memories the user
+    # typed. Both travel in frontmatter so the answer to "where did this come from?" is in the
+    # file itself, not in a side database.
+    source: str | None = None
+    source_hash: str | None = None
     path: Path | None = None
 
     def to_frontmatter(self) -> dict[str, Any]:
-        return {
+        fm: dict[str, Any] = {
             "id": self.id,
             "type": self.type.value,
             "tags": list(self.tags),
@@ -88,6 +93,11 @@ class MemoryNode:
             "stale": self.stale,
             "decay": self.decay,
         }
+        if self.source:
+            fm["source"] = self.source
+        if self.source_hash:
+            fm["source_hash"] = self.source_hash
+        return fm
 
     def to_markdown(self) -> str:
         post = frontmatter.Post(self.content, **self.to_frontmatter())
@@ -112,6 +122,8 @@ class MemoryNode:
             updated=_parse_dt(meta.get("updated")),
             stale=bool(meta.get("stale", False)),
             decay=_as_float(meta.get("decay", 0.0)),
+            source=(str(meta["source"]) if meta.get("source") else None),
+            source_hash=(str(meta["source_hash"]) if meta.get("source_hash") else None),
             content=post.content,
             path=path,
         )
