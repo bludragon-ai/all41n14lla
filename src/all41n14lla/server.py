@@ -166,10 +166,13 @@ def recall(
         limit: Maximum number of lexical matches to return (default 10).
             Floor constraints are returned in addition to this limit.
         verify: Optional (default False). When True, each non-floor hit is
-            relevance-judged by a local ollama model and IRRELEVANT hits are
-            dropped; every returned dict gains a ``verified`` flag. If ollama
-            is unreachable the unfiltered hits are returned with
-            ``verified: false`` — verification never breaks recall.
+            relevance-judged and irrelevant hits are dropped; every returned
+            dict gains a ``verified`` flag. Backend: a local ollama model
+            (default) or TypeSafe Jev (``ALL41N14LLA_VERIFY_BACKEND=typesafe``),
+            which also adds a per-hit ``relevance`` probability. If the judge
+            fails for any reason the unfiltered hits are returned with
+            ``verified: false`` and a one-line ``verify_reason`` —
+            verification never breaks recall.
 
     Returns a list of ``{id, type, content, tags, links, path, score, floor}``
     dicts — floor constraints first, then rescored matches, best-first.
@@ -194,11 +197,14 @@ def recall(
     ]
 
     if verify:
-        from all41n14lla.engine.verify import verify_hits
+        from all41n14lla.engine.verify import verify as verify_recall
 
-        hits, verified = verify_hits(query, hits)
+        result = verify_recall(query, hits)
+        hits = result.hits
         for h in hits:
-            h["verified"] = verified
+            h["verified"] = result.verified
+            if not result.verified and result.reason:
+                h["verify_reason"] = result.reason
 
     return hits
 

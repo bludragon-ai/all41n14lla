@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Verified recall: TypeSafe backend (2026-10-08). `ALL41N14LLA_VERIFY_BACKEND=typesafe` sends every non-floor hit of a `recall(verify=True)` to TypeSafe Jev as one Noul question each, batched into a single `POST /v1/systemone`, and keeps hits whose probability of relevance is `>= ALL41N14LLA_VERIFY_THRESHOLD` (default 0.5). Kept hits carry `relevance`. Key from `TYPESAFE_API_KEY` or the macOS login keychain. Same failure contract as the ollama judge: any failure returns the unfiltered hits with `verified: false`, now with a one-line `verify_reason`. Default backend stays `ollama`; plain `httpx`, no new dependency. Tests mock all HTTP; none touch the network.
 - Type-aware retrieval: deterministic constraint floor (tag-overlap injection, exempt from the result limit, capped at 50 with an overflow flag), per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, 90-day floored pattern recency. New module: `all41n14lla.engine.retrieval`.
 - `doctor` constraint-floor diagnostics: floor status, untagged (floor-invisible) constraints, tag hotspots.
 - Constraint-recall benchmark (`benchmarks/constraint_recall.py`) + comparison column.

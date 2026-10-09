@@ -27,6 +27,7 @@ def _make_vault(root: Path) -> Path:
 def scratch_vault(tmp_path: Path, monkeypatch) -> Path:
     vault = _make_vault(tmp_path / "vault")
     monkeypatch.setenv("ALL41N14LLA_VAULT", str(vault))
+    monkeypatch.delenv("ALL41N14LLA_VERIFY_BACKEND", raising=False)  # default = ollama
     return vault
 
 

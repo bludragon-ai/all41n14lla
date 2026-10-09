@@ -185,6 +185,33 @@ This writes `PERSONA.md` into the vault and exposes it over MCP as the `identity
 
 The `guard_output` MCP tool cuts a model's streamed output the moment a sentence or list item substantially repeats something already said in the same response — the failure mode local/smaller models hit more often than frontier ones. It uses normalized sequence and word-overlap similarity (default threshold `0.82`) and returns `{text, loop_detected, match}`; `text` is everything safe to keep. Tune it at server start: `all41n14lla serve --repetition-threshold 0.9 --repetition-window-chars 200`, or turn it off entirely with `--no-repetition-guard`. This is a runtime cutoff, not a fine-tuning fix — it stops a detected loop and preserves the usable output generated before it. The underlying `RepetitionGuard`/`guard_text`/`guard_stream` helpers in `all41n14lla.guard` work standalone too, outside any MCP client.
 
+## Verified recall with TypeSafe (optional)
+
+`recall(query, verify=True)` post-filters the hits through a relevance judge and drops the ones judged irrelevant. Off by default; the normal recall path never loads it. Constraint-floor hits are never judged or dropped.
+
+Two backends, picked by `ALL41N14LLA_VERIFY_BACKEND`:
+
+| Backend | Judge | Cost | Extra per-hit field |
+| --- | --- | --- | --- |
+| `ollama` (default) | local `llama3.2:3b` answers RELEVANT / IRRELEVANT, one call per hit | free, local | none |
+| `typesafe` | [TypeSafe](https://docs.typesafe.ai) Jev answers one [Noul](https://docs.typesafe.ai/primitives/noul) per hit: the probability the memory is relevant to the query | paid per input token | `relevance` (0 to 1) |
+
+```bash
+export ALL41N14LLA_VERIFY_BACKEND=typesafe
+export TYPESAFE_API_KEY=...            # or, on macOS, keep it in the login keychain:
+security add-generic-password -s TYPESAFE_API_KEY -a "$USER" -w   # prompts for the key
+export ALL41N14LLA_VERIFY_THRESHOLD=0.5   # optional; keep hits with p >= this
+export ALL41N14LLA_TYPESAFE_MODEL=jev-1.13.0   # optional; default jev-latest
+```
+
+How the TypeSafe backend works:
+
+- **One request per recall.** All non-floor hits for a query go to `POST https://api.typesafe.ai/v1/systemone` as one Noul question each (`state = {"search_query": ...}`, each question carries its memory in structured `instructions`, content capped at 2,000 chars). Jev evaluates the questions in parallel; a split into more requests happens only if a recall would pass the per-request context budget.
+- **Threshold 0.5 by default.** The Noul docs give 0.5 for decisions where a false yes and a false no cost about the same; here, keeping one noisy memory and hiding one useful one are roughly even. Lower it (e.g. `0.3`) to favour recall, raise it to favour precision. Pin `ALL41N14LLA_TYPESAFE_MODEL` to a versioned id once you tune it, since `jev-latest` moves.
+- **No new dependency.** It speaks the documented HTTP API with `httpx`, which the base install already has. No SDK, no extra.
+- **Never breaks recall.** No key, timeout (8 s), network error, any non-200 (401, 422, 429, 529...) or a malformed answer returns the unfiltered hits with `verified: false` and a one-line `verify_reason`. There are no retries: a rate-limited recall degrades instead of waiting.
+- **The key stays secret.** Read from `TYPESAFE_API_KEY`, else the macOS login keychain (`security find-generic-password -s TYPESAFE_API_KEY -w`). It only ever goes in the `Authorization` header; reasons are fixed strings, never an echoed exception.
+
 ## Client config
 
 `all41n14lla wire` writes all of this for you (and `wire --dry-run` shows you exactly what it would write). To wire a client by hand instead, this is the shape.
