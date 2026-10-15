@@ -1,4 +1,8 @@
-## 0.2.0 — 2026-09-03
+# Changelog
+
+All notable changes to `all41n14lla` will be documented in this file.
+
+## 0.2.0 — 2026-10-15
 
 ### Added
 - `all41n14lla reincarnate` — interactive first run. Eight plain questions; answers become the
@@ -19,9 +23,6 @@
   by source) now writes a receipt to `.all41n14lla/erasures/`: ids + content hashes, count, when,
   and a re-scan proving zero remain. 5 tests.
 
-# Changelog
-
-All notable changes to `all41n14lla` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
