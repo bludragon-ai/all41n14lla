@@ -157,7 +157,7 @@ Two front doors share one engine. The CLI calls the engine directly; it does not
 | Retrieval | `src/all41n14lla/engine/retrieval.py` | The constraint floor plus per-type rescoring. Pure stdlib math over the index. |
 | Verified recall | `src/all41n14lla/engine/verify.py` | Opt-in relevance filter. Backend `ollama` (default, `llama3.2:3b` on `localhost:11434`) or `typesafe` (`ALL41N14LLA_VERIFY_BACKEND=typesafe`). |
 | Watcher | `src/all41n14lla/watcher.py` | A `watchdog` observer started by `serve`. Upserts on create and modify, drops index rows on delete, both on move. Only `<vault>/<type-folder>/*.md` counts. |
-| Repetition guard | `src/all41n14lla/guard.py` | `RepetitionGuard`, behind the `guard_output` tool. Splits streamed text into sentence or line segments and stops at the first segment whose similarity to an earlier one (the higher of a `difflib.SequenceMatcher` ratio and word overlap, over the last 150 characters by default) reaches the threshold (0.82 by default). |
+| Repetition guard | `src/all41n14lla/guard.py` | `RepetitionGuard`, behind the `guard_output` tool. Splits streamed text into sentence or line segments and stops at the first segment (12 or more normalized characters; shorter ones are never checked) whose similarity to an earlier one (the higher of a `difflib.SequenceMatcher` ratio and word overlap, over the last 150 characters by default) reaches the threshold (0.82 by default). |
 | Persona | `src/all41n14lla/persona.py` | Optional `PERSONA.md` in the vault, returned by the `identity` tool. |
 | Erasure | `src/all41n14lla/erase.py` | Deletes nodes and writes a JSON receipt to `<vault>/.all41n14lla/erasures/`. Called by CLI `forget`. |
 | Ingest and setup | `devour.py`, `reincarnate.py`, `evolve.py`, `wire.py` (all in `src/all41n14lla/`) | CLI-only. `devour` proposes memories from one path and writes only what you accept. `wire` adds the server block to client configs. |
@@ -204,7 +204,7 @@ While `serve` is running, the watcher also sees the new file and upserts it agai
 1. Tokenize the query into lowercase `[a-z0-9]+` tokens, written to mirror FTS5's tokenizer so short and symbol tags trigger the floor as indexed (code comment on `_TOKEN_RE`).
 2. Constraint floor, when `type` is unset or `constraint`: a column-scoped FTS5 match on `tags` for any query token, restricted to constraints, with no rank cutoff. Sorted by tag overlap, then BM25. Capped at `FLOOR_CAP = 50`.
 3. Lexical pool: `search.py` quotes every term, joins them with `OR`, and pulls up to `LEXICAL_POOL = 200` hits by BM25, optionally filtered by type. Rows whose file has gone missing are skipped.
-4. Rescore (`_rescore`). Every type gets a tag bonus of `1 + 0.25 x min(overlapping tags, 2)`. Episodes are multiplied by a 30-day half-life decay. Patterns are multiplied by `0.6 + 0.4 x` a 90-day half-life decay. Concepts and constraints get no time term. Age comes from `created`. A missing `created` is parsed as "now", so when `created` is within 2 minutes of now and the file's mtime is more than 2 minutes older, the mtime is used instead (`_age_days`).
+4. Rescore (`_rescore`). Every type gets a tag bonus of `1 + 0.25 x min(tag tokens overlapping the query, 2)`. Episodes are multiplied by a 30-day half-life decay. Patterns are multiplied by `0.6 + 0.4 x` a 90-day half-life decay. Concepts and constraints get no time term. Age comes from `created`. A missing `created` is parsed as "now", so when `created` is within 2 minutes of now and the file's mtime is more than 2 minutes older, the mtime is used instead (`_age_days`).
 5. Merge: floor items first, then rescored hits not already in the floor, up to `limit` lexical results. Floor items do not count against `limit`.
 6. The server returns `{id, type, content, tags, links, path, score, floor}` for each hit.
 7. With `verify=True`, `engine/verify.py` judges each non-floor hit and drops the irrelevant ones. Floor items are never judged. On any failure (no key, timeout, non-2xx, bad response) it returns the unfiltered hits with `verified: false` and a one-line `verify_reason`.
@@ -244,7 +244,7 @@ While `serve` is running, the watcher also sees the new file and upserts it agai
 | CLI, setup and ingest | `test_cli.py`, `test_reincarnate.py`, `test_devour.py`, `test_evolve.py`, `test_wire.py`, `test_persona.py` | 53 |
 | Erasure, guard, redaction | `test_erase.py`, `test_guard.py`, `test_redact.py` | 17 |
 
-The verify tests never reach a real endpoint: TypeSafe tests use `httpx.MockTransport` and a stubbed keychain lookup; ollama tests monkeypatch the judge. `test_mcp_handshake.py` spawns `python -m all41n14lla serve`, does a real JSON-RPC `initialize` and `tools/list` over stdio, and asserts the exact seven-tool set.
+The verify tests never reach a real endpoint: TypeSafe tests use `httpx.MockTransport`, a test key set in the environment, and a stubbed `subprocess.run` for the keychain path; ollama tests monkeypatch the judge. `test_mcp_handshake.py` spawns `python -m all41n14lla serve`, does a real JSON-RPC `initialize` and `tools/list` over stdio, and asserts the exact seven-tool set.
 
 ## Install
 
