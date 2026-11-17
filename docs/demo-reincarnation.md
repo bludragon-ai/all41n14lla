@@ -8,14 +8,14 @@ nothing is mocked and nothing is typed off-screen. Record with `asciinema rec re
 ```bash
 export ALL41N14LLA_VAULT=/tmp/demo-vault       # a clean, throwaway vault
 mkdir -p /tmp/prey && cd /tmp/prey
-printf '# Salon Ops\n\nHow the front desk runs when nobody is at it.\n\n## Rules\n- Never text a client after 9pm.\n- Always confirm the day before.\n' > README.md
+printf '# Diner Ops\n\nHow the front desk runs when nobody is at it.\n\n## Rules\n- Never text a client after 9pm.\n- Always confirm the day before.\n' > README.md
 printf '"""Booking engine: one function, one calendar."""\n' > app.py
 ```
 
 ## Take (≈90 s)
 1. **0:00** `all41n14lla reincarnate` — answer the eight questions out loud, one line each. Pause
    one beat after *"And what do you name it?"* Let the 《Confirmed.》 lines land.
-   Last line on screen: *"You wake in a cave. It is dark. Nimbus is online."*
+   Last line on screen: *"You wake in a cave. It is dark. Aster is online."*
 2. **0:35** `all41n14lla devour /tmp/prey` — the table appears; **nothing is written**. Read the
    last line aloud: *"Nothing devoured."*
 3. **0:45** `all41n14lla devour /tmp/prey --accept 1,2` — two 《Confirmed.》 lines and the meal

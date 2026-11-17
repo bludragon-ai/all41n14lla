@@ -1,10 +1,11 @@
 """Bench: does `recall(verify=True)` actually improve precision, or just cost latency?
 
-The question design/CANDIDATE-memory-sideagent.md left open. Runs 20 real recall queries
-against the LIVE vault, once raw and once verified, and prints every hit the local judge
-dropped so a human can adjudicate whether the drop was right.
+The question design/CANDIDATE-memory-sideagent.md left open. Runs 20 everyday recall queries
+against a populated vault of your own, once raw and once verified, and prints every hit the
+local judge dropped so a human can adjudicate whether the drop was right. Edit QUERIES to
+match what your vault actually holds.
 
-Run:  ALL41N14LLA_VAULT=~/all41n14lla/02-Brain/mcp-memory .venv/bin/python benchmarks/verified_recall.py
+Run:  ALL41N14LLA_VAULT=~/my-vault .venv/bin/python benchmarks/verified_recall.py
 Needs ollama serving llama3.2:3b. Read-only — never writes to the vault.
 """
 from __future__ import annotations
@@ -22,28 +23,28 @@ from all41n14lla.engine.storage import Storage, default_db_path
 from all41n14lla.engine.verify import verify_hits
 from all41n14lla.redact import redact
 
-# 20 queries a real caller actually asks this brain — not synthetic keyword probes.
+# 20 queries a caller might ask a personal assistant's memory — not synthetic keyword probes.
 QUERIES = [
-    "how does Jordan want to be addressed",
-    "salon front desk product pricing",
-    "what is the outbound guardrail",
+    "how does the user want to be addressed",
+    "product pricing tiers",
+    "rules before sending anything outside",
     "python package install policy",
     "which model for which task",
     "where do secrets live",
-    "vault git remote policy",
+    "where backups are stored",
     "missed call text back",
-    "how does J like dashboards to look",
+    "how should dashboards look",
     "deletion policy before removing a file",
-    "VPS migration to the i5",
-    "job search resume positioning",
-    "telegram vs imessage channel",
-    "boil the ocean standard",
+    "server migration plan",
+    "product roadmap priorities",
+    "which chat channel to use for alerts",
+    "definition of done",
     "what should I do when a build spans many files",
-    "stripe checkout",
-    "ana avatar brand",
-    "three strikes rule retry",
-    "email addresses jordan uses",
-    "notebooklm sweep",
+    "payment checkout",
+    "brand style guide",
+    "retry policy after repeated failures",
+    "email addresses the user uses",
+    "weekly research sweep",
 ]
 LIMIT = 10
 

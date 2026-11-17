@@ -1,7 +1,7 @@
 # all41n14lla
 
 > [!NOTE]
-> **Disambiguation:** This directory is the source repository for the `all41n14lla` PyPI package (the MCP memory server). It is completely separate from J's personal Obsidian knowledge base / vault located at `~/all41n14lla/` — informally nicknamed "noir" in conversation precisely to avoid this confusion. Same underlying idea, different scope: this package is the generic, empty engine anyone can install; the vault is J's own populated instance of it, full of his real data.
+> **Disambiguation:** This repository is the source of the `all41n14lla` PyPI package (the MCP memory server): the generic, empty engine anyone can install. It ships no one's memories. Your own vault is a separate folder you choose (default `~/.all41n14lla/`).
 
 Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 
@@ -10,7 +10,7 @@ Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 [![Python](https://img.shields.io/pypi/pyversions/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Status:** `v0.1.0` (stable, on PyPI) + type-aware retrieval, `wire`, an optional persona/`identity` layer, and a `guard_output` repetition guard have landed in main (unreleased). The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
+> **Status:** `v0.2.0` (on PyPI). The 0.2.0 release adds type-aware retrieval, `wire`, `reincarnate`, `devour`, `evolve`, an optional persona/`identity` layer, and a `guard_output` repetition guard on top of 0.1.0. The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
 
 ## The problem
 
@@ -40,15 +40,15 @@ questions. Each answer becomes a memory the assistant is born with: the "never"s
 ```
 $ all41n14lla reincarnate
 《Notice.》 Vital signs lost. Beginning reincarnation.
-《Confirmed.》 Unique skill [Great Sage] acquired. It answers to Nimbus.
+《Confirmed.》 Unique skill [Great Sage] acquired. It answers to Aster.
 《Confirmed.》 Knowledge [Persistent Memory] acquired.
 《Confirmed.》 Skill [Resist Outbound] acquired.
 《Confirmed.》 Skill [Resist Deletion] acquired.
 《Confirmed.》 Knowledge [North Star] acquired.
 《Confirmed.》 Skill [Working Shape] acquired.
 《Confirmed.》 Extra skill [Predator] available. Nothing is devoured without consent.
-《Report.》 You wake in a cave. It is dark. Nimbus is online.
-Vault: ~/.all41n14lla · 6 memories. Next: `all41n14lla wire` connects Nimbus to every AI on this machine.
+《Report.》 You wake in a cave. It is dark. Aster is online.
+Vault: ~/.all41n14lla · 6 memories. Next: `all41n14lla wire` connects Aster to every AI on this machine.
 ```
 
 Three promises, each one a test in `tests/test_reincarnate.py`:
@@ -70,14 +70,14 @@ numbered table, and **writes nothing until you accept**:
 $ all41n14lla devour ./docs
 《Notice.》 Predator: analyzing ./docs …
   #  type        preview                                           where
-  1  concept     Salon Ops — How the front desk runs when nobody…  README.md:1
+  1  concept     Diner Ops — How the front desk runs when nobody…  README.md:1
   2  constraint  Never text a client after 9pm.                    README.md:6
   3  concept     app.py: Booking engine: one function, one calendar app.py:1
 《Report.》 Nothing devoured. Re-run with --accept all or --accept 1,3 to consume, or -i to choose one by one.
 
 $ all41n14lla devour ./docs --accept 1,2
-《Confirmed.》 Knowledge [Salon Ops] devoured · README.md:1
-《Confirmed.》 Skill [Salon Ops · rule] devoured · README.md:6
+《Confirmed.》 Knowledge [Diner Ops] devoured · README.md:1
+《Confirmed.》 Skill [Diner Ops · rule] devoured · README.md:6
 《Report.》 2 memories gained; the meal is episode 3f1c9a2e.
 ```
 
@@ -260,7 +260,7 @@ The same thing as three readable steps:
 2. **Reincarnate** — `all41n14lla reincarnate` asks eight plain questions and your answers become the assistant's first memories (or `all41n14lla init` for an empty vault, no questions)
 3. **Wire your clients** — `all41n14lla wire` (or `reincarnate --wire` to do both at once) detects Claude Code, Claude Desktop, Cursor, Gemini CLI, and Codex CLI and adds the server to each config. Idempotent, backs up any config it touches, `--dry-run` previews without writing.
 
-> `wire` is in main, unreleased — on the released `0.1.0` wheel, paste the config block from [Client config](#client-config) instead.
+> `wire` ships in 0.2.0 — on an older `0.1.0` install, paste the config block from [Client config](#client-config) instead.
 
 Python 3.11+ works; 3.13 is what I develop against. Working from a clone? See [CONTRIBUTING.md](CONTRIBUTING.md#getting-set-up).
 
@@ -282,7 +282,7 @@ Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspe
 A vault works with no persona at all — this is opt-in, not required.
 
 ```bash
-all41n14lla init --path ~/memory --name "Nimbus" --address "Master" --tone "serene and direct"
+all41n14lla init --path ~/memory --name "Aster" --address "Captain" --tone "calm and direct"
 all41n14lla persona --vault ~/memory     # print the persona back
 ```
 
@@ -365,7 +365,7 @@ Read the full comparison in [docs/comparison.md](docs/comparison.md).
 ## Roadmap
 
 - **v0.1 (shipped)** — four node types, markdown on disk, SQLite + FTS5 index, MCP stdio server, watchdog reconciliation, CLI (`init`, `serve`, `doctor`, `remember`, `recall`, `forget`, `reconcile`, `version`). Lexical search only.
-- **v0.2 (in main, unreleased)** — type-aware retrieval: the deterministic constraint floor, per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, `doctor` floor diagnostics. Pattern promotion (`consolidate`) remains a stub — honestly: the co-occurrence signal it needs (the `edges` table) only fills when episodes carry explicit `links`, and a body-mention extractor does not exist yet.
+- **v0.2 (shipped, 0.2.0 on PyPI)** — type-aware retrieval: the deterministic constraint floor, per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, `doctor` floor diagnostics. Pattern promotion (`consolidate`) remains a stub — honestly: the co-occurrence signal it needs (the `edges` table) only fills when episodes carry explicit `links`, and a body-mention extractor does not exist yet.
 - **v0.3** — pattern promotion over a real co-occurrence signal + tag-scoped recall (`tags=[...]` filter) for multi-team shared-memory use.
 - **Explicitly not planned** — embedding/vector recall as a hard dependency (see [docs/comparison.md](docs/comparison.md)); may appear later as an off-by-default opt-in. No Obsidian plugin, graph view, or bidirectional-edit subsystem — the vault is plain markdown and already opens anywhere.
 

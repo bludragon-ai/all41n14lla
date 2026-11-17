@@ -223,7 +223,7 @@ def forget(id: str) -> dict:
     vault = _require_vault()
     ident = (id or "").strip()
     if len(ident) < 8:
-        # Estate sweep 2026-08-04: a blank/short id + LIKE '%' would match EVERY
+        # Audit sweep 2026-08-04: a blank/short id + LIKE '%' would match EVERY
         # node — enforce the docstring's own "first 8+ characters" contract.
         return {"deleted": False, "id": None,
                 "reason": "id must be at least the first 8 characters of the node id"}

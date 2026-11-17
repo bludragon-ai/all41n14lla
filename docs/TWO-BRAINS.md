@@ -42,7 +42,7 @@ it communicates the design in one sentence — and the engineering it describes 
 
 ## Prior art in-house (verified 2026-07-10 — consolidate, don't invent)
 
-The founder's estate already contains three organs that de-risk this design, none of which fits the
+The founder's existing tooling already contains three organs that de-risk this design, none of which fits the
 right-hemisphere slot as-is:
 
 - **Pathways (in the package today):** declared graph edges between nodes — left-brain *structure*.
@@ -52,7 +52,7 @@ right-hemisphere slot as-is:
   HTML. Not an always-on index (costs agent tokens per run) — but its community-detection pass is
   the model for the **sleep-time insight step** ("these memories form an unnamed theme"), and its
   HTML rendering is the natural basis for `inspect --web`.
-- **pgvector RAG stack (estate, i5 server):** proven local embedding retrieval — but server-based,
+- **pgvector RAG stack (a separate self-hosted server):** proven local embedding retrieval — but server-based,
   which violates the package constitution (offline-first, zero services). The package hemisphere
   must be in-process (e.g. sqlite-vec + a local embedding model), informed by these patterns.
 

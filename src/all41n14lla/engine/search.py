@@ -26,7 +26,7 @@ def _sanitize(query: str) -> str:
     is a description, not a phrase. The earlier implementation joined terms
     with FTS5's implicit AND (every term required in one note), which silently
     returned ``[]`` for natural recall queries whose words are spread across
-    different notes — e.g. ``recall "Jordan career professional"`` never
+    different notes — e.g. ``recall "Alex career professional"`` never
     surfaced the professional-identity concept because no single note held all
     three words. (An even earlier version required the terms to be ADJACENT.)
     OR + BM25 ranking fixes both; single-term queries are unaffected (one term,

@@ -18,7 +18,7 @@ def prey(tmp_path: Path) -> Path:
     (root / "docs").mkdir(parents=True)
     (root / "node_modules" / "junk").mkdir(parents=True)
     (root / "README.md").write_text(
-        "# Salon Ops\n\nHow the front desk runs when nobody is at it.\n\n"
+        "# Diner Ops\n\nHow the front desk runs when nobody is at it.\n\n"
         "## Rules\n- Never text a client after 9pm.\n- Always confirm the day before.\n- ok\n",
         encoding="utf-8",
     )
@@ -92,7 +92,7 @@ def test_devoured_file_is_not_proposed_twice(prey, vault):
     again = analyze(prey, existing_source_hashes(vault))
     assert again.candidates == []
     assert again.already_devoured == 3  # README, notes, app.py — huge.md is size-skipped before it is ever hashed
-    (prey / "README.md").write_text("# Salon Ops\n\nChanged.\n", encoding="utf-8")
+    (prey / "README.md").write_text("# Diner Ops\n\nChanged.\n", encoding="utf-8")
     changed = analyze(prey, existing_source_hashes(vault))
     assert [c.where for c in changed.candidates] == ["README.md:1"]
 

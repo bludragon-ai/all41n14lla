@@ -12,7 +12,7 @@ def test_all_classes_bite_in_one_sample():
 
 
 def test_email_alone():
-    assert redact("reach jordan@bluprintsolutions.net today") == "reach [email] today"
+    assert redact("reach alex@example.org today") == "reach [email] today"
 
 
 def test_us_phone_with_dashes():

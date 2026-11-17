@@ -71,7 +71,7 @@ memory tools churn; adoption should start with recall that already works.
 
 ### 3. The visceral demo (cross-agent continuity)
 The one demo nobody else can run: *tell Claude something today — ask Cursor about it tomorrow.*
-Same memory, different AI brands. That's the README gif, the pitch's proof, and Ana's episode.
+Same memory, different AI brands. That's the README gif, and the pitch's proof.
 ("Swap the model, keep the mind" made visible.)
 
 ### 4. See your brain grow

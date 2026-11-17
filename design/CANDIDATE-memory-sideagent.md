@@ -1,12 +1,12 @@
 # Design candidate: relevance-verifying recall (from jcode study, 2026-07-11)
 
-**Source:** jcode's ambient memory (github.com/1jehuang/jcode; distilled at vault wiki/sources/jcode-harness.md).
+**Source:** jcode's ambient memory (github.com/1jehuang/jcode).
 
 **The idea worth stealing:** before injecting recall hits into context, an optional cheap "memory sideagent" verifies each hit is actually relevant to the live turn — and may do one more retrieval hop if the hits imply a better query. Kills the classic RAG failure (top-k cosine hits that are on-topic-adjacent but useless) without burning main-model tokens.
 
 **a41 mapping:**
 - Today: `recall` returns BM25/semantic top-k raw; the caller judges relevance.
-- Candidate: `recall --verified` (or a `verify: true` param): pipe hits through a small local model (ollama llama3.2:3b — free, already on m1/i5) with the query + one-line judgment per hit (keep/drop/refine-query). Opt-in, so the fast path stays fast.
+- Candidate: `recall --verified` (or a `verify: true` param): pipe hits through a small local model (ollama llama3.2:3b — free, runs on the local machine) with the query + one-line judgment per hit (keep/drop/refine-query). Opt-in, so the fast path stays fast.
 - Second jcode idea, cheaper: ambient extraction triggers (semantic drift / K turns / session end) — a41's predator loop already does session-end; drift-trigger is the novel bit.
 
 **Next step (not now):** prototype `verify` as a post-filter in the recall path; bench precision on 20 real queries vs raw top-k. Zero API cost via ollama.
@@ -24,9 +24,9 @@ report in `benchmarks/verified_recall_report.json`). It fails on both horns:
 | v1 strict RELEVANT/IRRELEVANT | **54%** | **NO** — killed the single best memory on 4/5 probes | +18.8 s/query |
 | v2 recall-biased (drop only if clearly unrelated) | 10% | yes, 5/5 | +19.6 s/query |
 
-- **v1 destroys recall.** `"email addresses jordan uses"` dropped the *Professional URLs and email
+- **v1 destroys recall.** `"email addresses [user] uses"` dropped the *email
   identities* note; `"where do secrets live"` dropped *"Never commit secrets to git"*; `"missed call
-  text back"` dropped the core salon front-desk product. A filter that deletes the answer is worse
+  text back"` dropped the core front-desk product note. A filter that deletes the answer is worse
   than no filter.
 - **v2 is safe but inert** — 10% dropped, all noise-adjacent, nothing a caller would have been
   misled by. It buys ~nothing.

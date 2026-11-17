@@ -10,14 +10,14 @@ from all41n14lla.engine.nodes import MemoryNode, NodeType
 from all41n14lla.reincarnate import QUESTIONS, act_tags, reincarnate
 
 FULL = {
-    "reexplain": "I run a nail salon and build AI tools at night; Python, Next.js, a Mac.",
+    "reexplain": "I keep the books for a small bakery and code side projects; Python, a Linux laptop.",
     "never_without_asking": "Never send an email or text, never spend money, never push to production.",
-    "never_touch": "Never delete or overwrite anything in my vault or my photos.",
-    "north_star": "Land a high-paying AI engineering job or make the business pay.",
-    "wears_out": "Long answers and too many questions. One action at a time.",
-    "address": "Master",
+    "never_touch": "Never delete or overwrite anything in the shared drive.",
+    "north_star": "Ship the inventory app and get its first ten users.",
+    "wears_out": "Walls of text. Short steps, one at a time.",
+    "address": "Captain",
     "tone": "calm and direct",
-    "name": "Nimbus",
+    "name": "Aster",
 }
 
 
@@ -28,8 +28,8 @@ def _nodes(vault):
 def test_full_rebirth_writes_persona_and_typed_nodes(tmp_path):
     vault = tmp_path / "v"
     r = reincarnate(vault, FULL, say=lambda s: None)
-    assert r.persona and r.persona.name == "Nimbus"
-    assert (vault / "PERSONA.md").read_text().count("Nimbus") >= 1
+    assert r.persona and r.persona.name == "Aster"
+    assert (vault / "PERSONA.md").read_text().count("Aster") >= 1
     types = sorted(n.type for n in r.nodes)
     assert types.count(NodeType.CONSTRAINT) == 3
     assert types.count(NodeType.CONCEPT) == 2
@@ -89,7 +89,7 @@ def test_birth_episode_links_every_skill(tmp_path):
     episode = next(n for n in r.nodes if n.type is NodeType.EPISODE)
     skill_ids = {n.id for n in r.nodes if n.type is not NodeType.EPISODE}
     assert set(episode.links) == skill_ids
-    assert "Nimbus woke with 5 skill(s)" in episode.content
+    assert "Aster woke with 5 skill(s)" in episode.content
 
 
 def test_transcript_speaks_in_the_voice_of_the_world(tmp_path):
@@ -117,7 +117,7 @@ def test_cli_interactive_reads_stdin(tmp_path):
     result = CliRunner().invoke(app, ["reincarnate", "--path", str(vault)], input=typed)
     assert result.exit_code == 0, result.output
     assert "You wake in a cave" in result.output
-    assert (vault / "PERSONA.md").read_text().count("Master") >= 1
+    assert (vault / "PERSONA.md").read_text().count("Captain") >= 1
 
 
 def test_cli_refuses_non_empty_vault(tmp_path):

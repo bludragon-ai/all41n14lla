@@ -5,7 +5,7 @@ Regression suite for two successive recall-killers:
    phrase match that required the terms to be ADJACENT.
 2. It then joined terms with FTS5's implicit AND (every term required in one
    note) — which silently returned ``[]`` for natural recall queries whose
-   words are spread across different notes (e.g. "Jordan career professional").
+   words are spread across different notes (e.g. "Alex career professional").
 
 The contract now: each term is quoted individually (operators stay
 neutralized) and joined with ``OR`` — a note matching ANY term is a candidate,
