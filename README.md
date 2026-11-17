@@ -150,18 +150,18 @@ Two front doors share one engine. The CLI calls the engine directly; it does not
 | Component | File | What it does |
 | --- | --- | --- |
 | MCP server | `src/all41n14lla/server.py` | A `FastMCP` server over stdio (`mcp.run()`). Seven tools: `identity`, `guard_output`, `remember`, `recall`, `forget`, `inspect`, `consolidate`. Vault is `$ALL41N14LLA_VAULT`, else `~/.all41n14lla/`. |
-| CLI | `src/all41n14lla/cli.py` | Typer app, installed as the `all41n14lla` script (`pyproject.toml`). `serve` starts the MCP server; `remember`, `recall`, `forget`, `inspect`, `reconcile`, `doctor` act on the vault directly; `init`, `reincarnate`, `devour`, `evolve`, `persona`, `wire` are setup and ingest commands. |
+| CLI | `src/all41n14lla/cli.py` | Typer app, installed as the `all41n14lla` script (`pyproject.toml`). `serve` starts the MCP server; `remember`, `recall`, `forget`, `inspect`, `reconcile`, `doctor` act on the vault directly; `init`, `reincarnate`, `devour` and `wire` set up or fill a vault; `evolve` and `persona` are read-only reports. |
 | Node model | `src/all41n14lla/engine/nodes.py` | `MemoryNode` and the four `NodeType`s. Reads and writes markdown with YAML frontmatter via `python-frontmatter`, including optional `source` and `source_hash` provenance. |
-| Index | `src/all41n14lla/engine/storage.py` | SQLite at `<vault>/.all41n14lla/index.db`, WAL mode. Tables: `nodes` (id, type, path, timestamps), `nodes_fts` (FTS5 over `content` and `tags`, Porter tokenizer), `edges` (pair weights). `reconcile()` rebuilds it from the markdown folders. |
+| Index | `src/all41n14lla/engine/storage.py` | SQLite at `<vault>/.all41n14lla/index.db`, WAL mode. Tables: `nodes` (id, type, path, timestamps), `nodes_fts` (FTS5 over `content` and `tags`, Porter tokenizer), `edges` (pair weights). `reconcile()` rebuilds `nodes` and `nodes_fts` from the markdown folders; it does not rebuild `edges`. |
 | Lexical search | `src/all41n14lla/engine/search.py` | FTS5 `MATCH` with BM25, score negated so higher is better. Reads each hit's content back from its markdown file. |
 | Retrieval | `src/all41n14lla/engine/retrieval.py` | The constraint floor plus per-type rescoring. Pure stdlib math over the index. |
 | Verified recall | `src/all41n14lla/engine/verify.py` | Opt-in relevance filter. Backend `ollama` (default, `llama3.2:3b` on `localhost:11434`) or `typesafe` (`ALL41N14LLA_VERIFY_BACKEND=typesafe`). |
 | Watcher | `src/all41n14lla/watcher.py` | A `watchdog` observer started by `serve`. Upserts on create and modify, drops index rows on delete, both on move. Only `<vault>/<type-folder>/*.md` counts. |
-| Repetition guard | `src/all41n14lla/guard.py` | `RepetitionGuard`, behind the `guard_output` tool. Compares a trailing character window with `difflib.SequenceMatcher`. |
+| Repetition guard | `src/all41n14lla/guard.py` | `RepetitionGuard`, behind the `guard_output` tool. Splits streamed text into sentence or line segments and stops at the first segment whose similarity to an earlier one (the higher of a `difflib.SequenceMatcher` ratio and word overlap, over the last 150 characters by default) reaches the threshold (0.82 by default). |
 | Persona | `src/all41n14lla/persona.py` | Optional `PERSONA.md` in the vault, returned by the `identity` tool. |
 | Erasure | `src/all41n14lla/erase.py` | Deletes nodes and writes a JSON receipt to `<vault>/.all41n14lla/erasures/`. Called by CLI `forget`. |
 | Ingest and setup | `devour.py`, `reincarnate.py`, `evolve.py`, `wire.py` (all in `src/all41n14lla/`) | CLI-only. `devour` proposes memories from one path and writes only what you accept. `wire` adds the server block to client configs. |
-| Redaction | `src/all41n14lla/redact.py` | PII masking for benchmark report excerpts (`benchmarks/constraint_recall.py`, `benchmarks/verified_recall.py`). |
+| Redaction | `src/all41n14lla/redact.py` | PII masking for benchmark report excerpts (`benchmarks/verified_recall.py`). |
 
 ```
   MCP client (Claude, Cursor, ...)            shell
@@ -181,7 +181,7 @@ Two front doors share one engine. The CLI calls the engine directly; it does not
           engine/nodes.py    MemoryNode <-> markdown + frontmatter  |
                              v                                      |
   <vault>/concepts/  patterns/  episodes/  constraints/  *.md  -----+
-  <vault>/.all41n14lla/index.db   (derived; `reconcile` rebuilds it)
+  <vault>/.all41n14lla/index.db   (derived; `reconcile` rebuilds nodes + nodes_fts)
 ```
 
 ### One `remember` call (MCP)
@@ -211,16 +211,16 @@ While `serve` is running, the watcher also sees the new file and upserts it agai
 
 ### Design choices, and where the reason is written down
 
-- **Markdown is canonical, SQLite is derived.** The index can be deleted and rebuilt with `reconcile` (`engine/storage.py` module docstring). Search reads content back from the file, not from the index (`engine/search.py`).
+- **Markdown is canonical, SQLite is derived.** The `nodes` and `nodes_fts` tables can be deleted and rebuilt with `reconcile` (`engine/storage.py` module docstring). Search reads content back from the file, not from the index (`engine/search.py`).
 - **Multi-word queries use `OR`, ranked by BM25.** Implicit `AND` returned nothing when the words were spread across different notes. Quoting each term also stops user text from injecting FTS5 operators (`_sanitize` docstring in `engine/search.py`; commit `a3e4c4c`).
 - **Hard rules ride a separate path.** A weak lexical match cannot drop a tagged constraint, and the 50-rule cap protects the caller's context window (`engine/retrieval.py` module docstring; commits `fa30485`, `588a98f`).
-- **WAL mode, one process.** Readers do not block the writer. Concurrent writers against one vault are not supported (`engine/storage.py` docstring).
+- **WAL mode, one process.** The index is "intended for single-process use" and opened in WAL mode so readers never block writers (`engine/storage.py` docstring).
 - **`forget` needs at least 8 characters of the id.** A blank id turned into `LIKE '%'` would match every node (comment in `server.py:forget`).
 - **`mcp` is pinned below 2.0.** `mcp.server.fastmcp` was removed in 2.x (`tests/test_mcp_handshake.py` docstring; commit `a6d4742`).
 - **Verified recall is off by default.** A local benchmark of the ollama judge either dropped relevant memories or kept everything, at about 19 s per query against 47 ms raw (commit `26b962e`). When it is on, it can never break recall (`engine/verify.py` docstring).
 - **Provenance lives in the file.** `source` and `source_hash` are frontmatter fields, so "where did this come from?" is answered without a side database (comment in `engine/nodes.py`).
 - **Ingest is consent-scoped and deterministic.** `devour` proposes and writes nothing until you accept; no model is in the loop, so proposals are reproducible (`devour.py` docstring).
-- **`wire` never clobbers a config.** It backs up first, reports conflicts instead of overwriting, and appends TOML for Codex because the stdlib cannot write TOML (`wire.py` docstring).
+- **`wire` is non-destructive by default.** It backs up each config before changing it and reports a conflicting entry instead of overwriting it; `--force` replaces a conflict for JSON clients only. It appends TOML for Codex because the stdlib cannot write TOML (`wire.py` docstring).
 
 ### Known gaps in 0.2.0
 
@@ -228,6 +228,7 @@ While `serve` is running, the watcher also sees the new file and upserts it agai
 - `increment_edges` pairs whatever ids are in `links`; it does not check that they are concepts.
 - The MCP `forget` tool deletes the file and index rows but writes no receipt. Receipts come from CLI `forget` via `erase.py`.
 - `retrieve` computes `floor_overflow`, but MCP `recall` does not return it.
+- Edge weights live only in the index. `reconcile` does not rebuild `edges`, so deleting `index.db` loses the co-occurrence weights.
 - The watcher has no startup scan. Edits made while `serve` is not running reach the index through `all41n14lla reconcile`.
 
 ### How it is tested
