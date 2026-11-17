@@ -139,6 +139,112 @@ Retrieval is not one ranking function over one bucket. Concepts rank by match sc
 
 The constraint guarantee is **deterministic context injection, not a ranking**: a separate, uncapped code path keyed on tag overlap (stem-aware), exempt from the result limit, returned in the top slots. Stated precondition: it is tag-scoped — an untagged constraint, or a query with no overlapping terms, will not trigger it. `all41n14lla doctor` reports untagged constraints and tag hotspots so the precondition is observable, not a gotcha. The floor caps at 50 injected rules to protect the caller's context window. Full architecture: [docs/architecture.md](docs/architecture.md).
 
+## Architecture
+
+A code map of 0.2.0 (commit `417dda0`). Every claim below points at the file that makes it true.
+
+### Components
+
+Two front doors share one engine. The CLI calls the engine directly; it does not go through the MCP server.
+
+| Component | File | What it does |
+| --- | --- | --- |
+| MCP server | `src/all41n14lla/server.py` | A `FastMCP` server over stdio (`mcp.run()`). Seven tools: `identity`, `guard_output`, `remember`, `recall`, `forget`, `inspect`, `consolidate`. Vault is `$ALL41N14LLA_VAULT`, else `~/.all41n14lla/`. |
+| CLI | `src/all41n14lla/cli.py` | Typer app, installed as the `all41n14lla` script (`pyproject.toml`). `serve` starts the MCP server; `remember`, `recall`, `forget`, `inspect`, `reconcile`, `doctor` act on the vault directly; `init`, `reincarnate`, `devour`, `evolve`, `persona`, `wire` are setup and ingest commands. |
+| Node model | `src/all41n14lla/engine/nodes.py` | `MemoryNode` and the four `NodeType`s. Reads and writes markdown with YAML frontmatter via `python-frontmatter`, including optional `source` and `source_hash` provenance. |
+| Index | `src/all41n14lla/engine/storage.py` | SQLite at `<vault>/.all41n14lla/index.db`, WAL mode. Tables: `nodes` (id, type, path, timestamps), `nodes_fts` (FTS5 over `content` and `tags`, Porter tokenizer), `edges` (pair weights). `reconcile()` rebuilds it from the markdown folders. |
+| Lexical search | `src/all41n14lla/engine/search.py` | FTS5 `MATCH` with BM25, score negated so higher is better. Reads each hit's content back from its markdown file. |
+| Retrieval | `src/all41n14lla/engine/retrieval.py` | The constraint floor plus per-type rescoring. Pure stdlib math over the index. |
+| Verified recall | `src/all41n14lla/engine/verify.py` | Opt-in relevance filter. Backend `ollama` (default, `llama3.2:3b` on `localhost:11434`) or `typesafe` (`ALL41N14LLA_VERIFY_BACKEND=typesafe`). |
+| Watcher | `src/all41n14lla/watcher.py` | A `watchdog` observer started by `serve`. Upserts on create and modify, drops index rows on delete, both on move. Only `<vault>/<type-folder>/*.md` counts. |
+| Repetition guard | `src/all41n14lla/guard.py` | `RepetitionGuard`, behind the `guard_output` tool. Compares a trailing character window with `difflib.SequenceMatcher`. |
+| Persona | `src/all41n14lla/persona.py` | Optional `PERSONA.md` in the vault, returned by the `identity` tool. |
+| Erasure | `src/all41n14lla/erase.py` | Deletes nodes and writes a JSON receipt to `<vault>/.all41n14lla/erasures/`. Called by CLI `forget`. |
+| Ingest and setup | `devour.py`, `reincarnate.py`, `evolve.py`, `wire.py` (all in `src/all41n14lla/`) | CLI-only. `devour` proposes memories from one path and writes only what you accept. `wire` adds the server block to client configs. |
+| Redaction | `src/all41n14lla/redact.py` | PII masking for benchmark report excerpts (`benchmarks/constraint_recall.py`, `benchmarks/verified_recall.py`). |
+
+```
+  MCP client (Claude, Cursor, ...)            shell
+          | JSON-RPC over stdio                 |
+          v                                     v
+  server.py  (FastMCP, 7 tools)           cli.py  (Typer)
+          |                                     |
+          +------------------+------------------+
+                             v
+          engine/retrieval.py   constraint floor + per-type rescore
+          engine/search.py      FTS5 MATCH, BM25
+          engine/verify.py      opt-in judge (ollama | typesafe)
+                             |
+          engine/storage.py  <---- watcher.py (watchdog, while `serve` runs)
+             SQLite index: nodes | nodes_fts | edges                ^
+                             |                                      |
+          engine/nodes.py    MemoryNode <-> markdown + frontmatter  |
+                             v                                      |
+  <vault>/concepts/  patterns/  episodes/  constraints/  *.md  -----+
+  <vault>/.all41n14lla/index.db   (derived; `reconcile` rebuilds it)
+```
+
+### One `remember` call (MCP)
+
+`server.py:remember(type, content, tags, links)`
+
+1. Resolve the vault and fail if it does not exist (`_require_vault`). `type` is required.
+2. Build a `MemoryNode` with a fresh `uuid4` id and UTC `created` / `updated` (`engine/nodes.py`).
+3. Write the markdown first: `<vault>/<type>s/<id>.md` (`MemoryNode.write`).
+4. Index it: `Storage.upsert_node` does an `INSERT ... ON CONFLICT(id) DO UPDATE` on `nodes`, replaces the `nodes_fts` row, and commits (`engine/storage.py`).
+5. If the node is an episode with `links`, `increment_edges` adds 1.0 to the weight of every unique pair of linked ids, stored in canonical order (smaller id first).
+6. Return `{id, type, path}`.
+
+While `serve` is running, the watcher also sees the new file and upserts it again. That is harmless because the write is an upsert (`watcher.py` docstring).
+
+### One `recall` call (MCP)
+
+`server.py:recall(query, type=None, limit=10, verify=False)` calls `engine/retrieval.py:retrieve`:
+
+1. Tokenize the query into lowercase `[a-z0-9]+` tokens, matching how FTS5 splits text.
+2. Constraint floor, when `type` is unset or `constraint`: a column-scoped FTS5 match on `tags` for any query token, restricted to constraints, with no rank cutoff. Sorted by tag overlap, then BM25. Capped at `FLOOR_CAP = 50`.
+3. Lexical pool: `search.py` quotes every term, joins them with `OR`, and pulls up to `LEXICAL_POOL = 200` hits by BM25, optionally filtered by type. Rows whose file has gone missing are skipped.
+4. Rescore (`_rescore`). Every type gets a tag bonus of `1 + 0.25 x min(overlapping tags, 2)`. Episodes are multiplied by a 30-day half-life decay. Patterns are multiplied by `0.6 + 0.4 x` a 90-day half-life decay. Concepts and constraints get no time term. Age comes from `created`, falling back to file mtime when `created` was missing from the frontmatter.
+5. Merge: floor items first, then rescored hits not already in the floor, up to `limit` lexical results. Floor items do not count against `limit`.
+6. The server returns `{id, type, content, tags, links, path, score, floor}` for each hit.
+7. With `verify=True`, `engine/verify.py` judges each non-floor hit and drops the irrelevant ones. Floor items are never judged. On any failure (no key, timeout, non-2xx, bad response) it returns the unfiltered hits with `verified: false` and a one-line `verify_reason`.
+
+### Design choices, and where the reason is written down
+
+- **Markdown is canonical, SQLite is derived.** The index can be deleted and rebuilt with `reconcile` (`engine/storage.py` module docstring). Search reads content back from the file, not from the index (`engine/search.py`).
+- **Multi-word queries use `OR`, ranked by BM25.** Implicit `AND` returned nothing when the words were spread across different notes. Quoting each term also stops user text from injecting FTS5 operators (`_sanitize` docstring in `engine/search.py`; commit `a3e4c4c`).
+- **Hard rules ride a separate path.** A weak lexical match cannot drop a tagged constraint, and the 50-rule cap protects the caller's context window (`engine/retrieval.py` module docstring; commits `fa30485`, `588a98f`).
+- **WAL mode, one process.** Readers do not block the writer. Concurrent writers against one vault are not supported (`engine/storage.py` docstring).
+- **`forget` needs at least 8 characters of the id.** A blank id turned into `LIKE '%'` would match every node (comment in `server.py:forget`).
+- **`mcp` is pinned below 2.0.** `mcp.server.fastmcp` was removed in 2.x (`tests/test_mcp_handshake.py` docstring; commit `a6d4742`).
+- **Verified recall is off by default.** A local benchmark of the ollama judge either dropped relevant memories or kept everything, at about 19 s per query against 47 ms raw (commit `26b962e`). When it is on, it can never break recall (`engine/verify.py` docstring).
+- **Provenance lives in the file.** `source` and `source_hash` are frontmatter fields, so "where did this come from?" is answered without a side database (comment in `engine/nodes.py`).
+- **Ingest is consent-scoped and deterministic.** `devour` proposes and writes nothing until you accept; no model is in the loop, so proposals are reproducible (`devour.py` docstring).
+- **`wire` never clobbers a config.** It backs up first, reports conflicts instead of overwriting, and appends TOML for Codex because the stdlib cannot write TOML (`wire.py` docstring).
+
+### Known gaps in 0.2.0
+
+- `consolidate` returns a stub status, and `engine/pathways.py` holds only a docstring. The `edges` table is written but nothing promotes patterns from it yet.
+- `increment_edges` pairs whatever ids are in `links`; it does not check that they are concepts.
+- The MCP `forget` tool deletes the file and index rows but writes no receipt. Receipts come from CLI `forget` via `erase.py`.
+- `retrieve` computes `floor_overflow`, but MCP `recall` does not return it.
+- The watcher has no startup scan. Edits made while `serve` is not running reach the index through `all41n14lla reconcile`.
+
+### How it is tested
+
+`pytest -q` (config in `pyproject.toml`, `pythonpath = ["src"]`). At `417dda0` on Python 3.13: **170 passed** across 20 test files. CI runs the same command on Python 3.11, 3.12, 3.13 and 3.14 (`.github/workflows/test.yml`), with `ruff` as a non-blocking step.
+
+| Area | Files | Tests |
+| --- | --- | --- |
+| Retrieval and search | `test_retrieval.py`, `test_search.py`, `test_cli_recall.py` | 29 |
+| Verified recall | `test_verify.py`, `test_verify_typesafe.py` | 40 |
+| MCP server | `test_server.py`, `test_mcp_handshake.py` | 13 |
+| Index, nodes, pathways, watcher | `test_storage.py`, `test_nodes.py`, `test_pathways.py`, `test_watcher.py` | 18 |
+| CLI, setup and ingest | `test_cli.py`, `test_reincarnate.py`, `test_devour.py`, `test_evolve.py`, `test_wire.py`, `test_persona.py` | 53 |
+| Erasure, guard, redaction | `test_erase.py`, `test_guard.py`, `test_redact.py` | 17 |
+
+The verify tests never reach a real endpoint: TypeSafe tests use `httpx.MockTransport` and a stubbed keychain lookup; ollama tests monkeypatch the judge. `test_mcp_handshake.py` spawns `python -m all41n14lla serve`, does a real JSON-RPC `initialize` and `tools/list` over stdio, and asserts the exact seven-tool set.
+
 ## Install
 
 One command — install, create the vault, wire every MCP client you have:
