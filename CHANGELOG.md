@@ -2,6 +2,12 @@
 
 All notable changes to `all41n14lla` will be documented in this file.
 
+## 0.2.1 — 2026-11-17
+
+### Changed
+- Docs, tests, benchmarks and examples use neutral sample data (an example persona, user and vault path) throughout. No code behaviour changes: the only `src` edits are one docstring example and one comment.
+- README: an Architecture section (a code map of 0.2.0) and a status line that matches what is on PyPI.
+
 ## 0.2.0 — 2026-10-15
 
 ### Added

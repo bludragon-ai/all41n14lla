@@ -10,7 +10,7 @@ Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 [![Python](https://img.shields.io/pypi/pyversions/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Status:** `v0.2.0` (on PyPI). The 0.2.0 release adds type-aware retrieval, `wire`, `reincarnate`, `devour`, `evolve`, an optional persona/`identity` layer, and a `guard_output` repetition guard on top of 0.1.0. The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
+> **Status:** `v0.2.1` (on PyPI; 0.2.1 is a docs and examples patch over 0.2.0). The 0.2.0 release adds type-aware retrieval, `wire`, `reincarnate`, `devour`, `evolve`, an optional persona/`identity` layer, and a `guard_output` repetition guard on top of 0.1.0. The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
 
 ## The problem
 
