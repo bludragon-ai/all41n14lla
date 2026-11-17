@@ -150,9 +150,9 @@ Two front doors share one engine. The CLI calls the engine directly; it does not
 | Component | File | What it does |
 | --- | --- | --- |
 | MCP server | `src/all41n14lla/server.py` | A `FastMCP` server over stdio (`mcp.run()`). Seven tools: `identity`, `guard_output`, `remember`, `recall`, `forget`, `inspect`, `consolidate`. Vault is `$ALL41N14LLA_VAULT`, else `~/.all41n14lla/`. |
-| CLI | `src/all41n14lla/cli.py` | Typer app, installed as the `all41n14lla` script (`pyproject.toml`). `serve` starts the MCP server; `remember`, `recall`, `forget`, `inspect`, `reconcile`, `doctor` act on the vault directly; `init`, `reincarnate`, `devour` and `wire` set up or fill a vault; `evolve` and `persona` are read-only reports. |
+| CLI | `src/all41n14lla/cli.py` | Typer app, installed as the `all41n14lla` script (`pyproject.toml`). `serve` starts the MCP server; `remember`, `recall`, `forget`, `inspect`, `reconcile`, `doctor` act on the vault directly; `init`, `reincarnate`, `devour` and `wire` set up or fill a vault; `evolve` and `persona` are read-only reports; `consolidate` prints a not-yet-built notice, like the MCP stub; `version` prints the version. |
 | Node model | `src/all41n14lla/engine/nodes.py` | `MemoryNode` and the four `NodeType`s. Reads and writes markdown with YAML frontmatter via `python-frontmatter`, including optional `source` and `source_hash` provenance. |
-| Index | `src/all41n14lla/engine/storage.py` | SQLite at `<vault>/.all41n14lla/index.db`, WAL mode. Tables: `nodes` (id, type, path, timestamps), `nodes_fts` (FTS5 over `content` and `tags`, Porter tokenizer), `edges` (pair weights). `reconcile()` rebuilds `nodes` and `nodes_fts` from the markdown folders; it does not rebuild `edges`. |
+| Index | `src/all41n14lla/engine/storage.py` | SQLite at `<vault>/.all41n14lla/index.db`, WAL mode. Tables: `nodes` (id, type, path, timestamps, `stale`, `decay`), `nodes_fts` (FTS5 over `content` and `tags`, Porter tokenizer), `edges` (pair weights). `reconcile()` rebuilds `nodes` and `nodes_fts` from the markdown folders; it does not rebuild `edges`. |
 | Lexical search | `src/all41n14lla/engine/search.py` | FTS5 `MATCH` with BM25, score negated so higher is better. Reads each hit's content back from its markdown file. |
 | Retrieval | `src/all41n14lla/engine/retrieval.py` | The constraint floor plus per-type rescoring. Pure stdlib math over the index. |
 | Verified recall | `src/all41n14lla/engine/verify.py` | Opt-in relevance filter. Backend `ollama` (default, `llama3.2:3b` on `localhost:11434`) or `typesafe` (`ALL41N14LLA_VERIFY_BACKEND=typesafe`). |
@@ -201,10 +201,10 @@ While `serve` is running, the watcher also sees the new file and upserts it agai
 
 `server.py:recall(query, type=None, limit=10, verify=False)` calls `engine/retrieval.py:retrieve`:
 
-1. Tokenize the query into lowercase `[a-z0-9]+` tokens, matching how FTS5 splits text.
+1. Tokenize the query into lowercase `[a-z0-9]+` tokens, written to mirror FTS5's tokenizer so short and symbol tags trigger the floor as indexed (code comment on `_TOKEN_RE`).
 2. Constraint floor, when `type` is unset or `constraint`: a column-scoped FTS5 match on `tags` for any query token, restricted to constraints, with no rank cutoff. Sorted by tag overlap, then BM25. Capped at `FLOOR_CAP = 50`.
 3. Lexical pool: `search.py` quotes every term, joins them with `OR`, and pulls up to `LEXICAL_POOL = 200` hits by BM25, optionally filtered by type. Rows whose file has gone missing are skipped.
-4. Rescore (`_rescore`). Every type gets a tag bonus of `1 + 0.25 x min(overlapping tags, 2)`. Episodes are multiplied by a 30-day half-life decay. Patterns are multiplied by `0.6 + 0.4 x` a 90-day half-life decay. Concepts and constraints get no time term. Age comes from `created`, falling back to file mtime when `created` was missing from the frontmatter.
+4. Rescore (`_rescore`). Every type gets a tag bonus of `1 + 0.25 x min(overlapping tags, 2)`. Episodes are multiplied by a 30-day half-life decay. Patterns are multiplied by `0.6 + 0.4 x` a 90-day half-life decay. Concepts and constraints get no time term. Age comes from `created`. A missing `created` is parsed as "now", so when `created` is within 2 minutes of now and the file's mtime is more than 2 minutes older, the mtime is used instead (`_age_days`).
 5. Merge: floor items first, then rescored hits not already in the floor, up to `limit` lexical results. Floor items do not count against `limit`.
 6. The server returns `{id, type, content, tags, links, path, score, floor}` for each hit.
 7. With `verify=True`, `engine/verify.py` judges each non-floor hit and drops the irrelevant ones. Floor items are never judged. On any failure (no key, timeout, non-2xx, bad response) it returns the unfiltered hits with `verified: false` and a one-line `verify_reason`.
@@ -217,7 +217,7 @@ While `serve` is running, the watcher also sees the new file and upserts it agai
 - **WAL mode, one process.** The index is "intended for single-process use" and opened in WAL mode so readers never block writers (`engine/storage.py` docstring).
 - **`forget` needs at least 8 characters of the id.** A blank id turned into `LIKE '%'` would match every node (comment in `server.py:forget`).
 - **`mcp` is pinned below 2.0.** `mcp.server.fastmcp` was removed in 2.x (`tests/test_mcp_handshake.py` docstring; commit `a6d4742`).
-- **Verified recall is off by default.** A local benchmark of the ollama judge either dropped relevant memories or kept everything, at about 19 s per query against 47 ms raw (commit `26b962e`). When it is on, it can never break recall (`engine/verify.py` docstring).
+- **Verified recall is off by default.** A local benchmark of the ollama judge found a strict prompt dropped relevant memories and a lenient one filtered almost nothing (10% of hits), either way at about 19 s per query against 47 ms raw (commit `26b962e`). When it is on, any judge failure returns the unfiltered hits instead of failing the call (`engine/verify.py` docstring).
 - **Provenance lives in the file.** `source` and `source_hash` are frontmatter fields, so "where did this come from?" is answered without a side database (comment in `engine/nodes.py`).
 - **Ingest is consent-scoped and deterministic.** `devour` proposes and writes nothing until you accept; no model is in the loop, so proposals are reproducible (`devour.py` docstring).
 - **`wire` is non-destructive by default.** It backs up each config before changing it and reports a conflicting entry instead of overwriting it; `--force` replaces a conflict for JSON clients only. It appends TOML for Codex because the stdlib cannot write TOML (`wire.py` docstring).
