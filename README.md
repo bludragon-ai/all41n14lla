@@ -277,6 +277,22 @@ The default vault is `~/.all41n14lla/` — a hidden per-user dotfile. Pass `--pa
 
 Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (stub, lands in v0.2), `wire` (auto-configure MCP clients), `version`, `serve`.
 
+## Open it in Obsidian
+
+The store is plain markdown with YAML frontmatter, so [Obsidian](https://obsidian.md) opens it as is. The core Bases plugin turns it into a sortable table, with no plugin from this package.
+
+```bash
+all41n14lla init --path ~/memory                     # a visible store (or reuse yours)
+all41n14lla remember concept "sqlite fts5 uses the porter tokenizer by default" --vault ~/memory
+cp examples/obsidian/memory.base ~/memory/           # from a clone of this repo
+```
+
+1. In Obsidian, choose **Open folder as vault** and pick `~/memory`.
+2. Turn on **Settings > Core plugins > Bases** if it is off.
+3. Open `memory.base`.
+
+You see four table views over `concepts/`, `patterns/`, `episodes/` and `constraints/`: **All memories** (newest first, with type, tags, days since update, decay, stale, source), **By type** (grouped by `type`), **Constraints** and **Stale**. Each row is one memory file; click it to read or edit the note, and the watchdog reconciles the edit into the index. The columns are the frontmatter keys the package writes (`type`, `tags`, `created`, `updated`, `stale`, `decay`, `source`). The base file is a view only; the package never reads it. The index lives in the hidden `.all41n14lla/` folder, which Obsidian does not show.
+
 ## Optional persona
 
 A vault works with no persona at all — this is opt-in, not required.
