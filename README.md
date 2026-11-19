@@ -291,7 +291,7 @@ cp examples/obsidian/memory.base ~/memory/           # from a clone of this repo
 2. Turn on **Settings > Core plugins > Bases** if it is off.
 3. Open `memory.base`.
 
-You see four table views over `concepts/`, `patterns/`, `episodes/` and `constraints/`: **All memories** (newest first, with type, tags, days since update, decay, stale, source), **By type** (grouped by `type`), **Constraints** and **Stale**. Each row is one memory file; click it to read or edit the note, and the watchdog reconciles the edit into the index. The columns are the frontmatter keys the package writes (`type`, `tags`, `created`, `updated`, `stale`, `decay`, `source`). The base file is a view only; the package never reads it. The index lives in the hidden `.all41n14lla/` folder, which Obsidian does not show.
+You see four table views over `concepts/`, `patterns/`, `episodes/` and `constraints/`: **All memories** (newest first, with type, tags, days since update, decay, stale, source), **By type** (grouped by `type`), **Constraints** and **Stale**. Each row is one memory file; click it to read or edit the note; while the MCP server is running, its watchdog reconciles the edit into the index. The columns are the frontmatter keys the package writes (`type`, `tags`, `created`, `updated`, `stale`, `decay`, `source`). The base file is a view only; the package never reads it. The index lives in the hidden `.all41n14lla/` folder, which Obsidian does not show.
 
 ## Optional persona
 
