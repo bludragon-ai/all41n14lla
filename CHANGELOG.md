@@ -2,6 +2,12 @@
 
 All notable changes to `all41n14lla` will be documented in this file.
 
+## 0.2.2 — 2026-11-19
+
+### Added
+- `examples/obsidian/memory.base`: open a memory store as an Obsidian vault and see every memory in a sortable table (All memories, By type, Constraints, Stale). A view only; the package never reads it. A test checks it parses and names only keys the package writes.
+- README: an "Open it in Obsidian" section.
+
 ## 0.2.1 — 2026-11-17
 
 ### Changed
