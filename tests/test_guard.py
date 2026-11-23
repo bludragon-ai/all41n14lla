@@ -3,10 +3,10 @@ from pathlib import Path
 
 from all41n14lla.guard import RepetitionGuard, guard_text
 
-FIXTURE = Path(__file__).parent / "fixtures" / "ornith-1.5-9b-near-duplicate-list.txt"
+FIXTURE = Path(__file__).parent / "fixtures" / "near-duplicate-list.txt"
 
 
-def test_ornith_near_duplicate_list_fixture_is_cut(caplog) -> None:
+def test_near_duplicate_list_fixture_is_cut(caplog) -> None:
     text = FIXTURE.read_text()
     guard = RepetitionGuard()
 
