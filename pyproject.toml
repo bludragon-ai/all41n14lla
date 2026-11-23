@@ -1,0 +1,87 @@
+[project]
+name = "all41n14lla"
+version = "0.2.2"
+description = "Portable memory for AI agents. Markdown on your disk. Speaks MCP."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Jordan Truong", email = "emailme@jordantruong.com" }]
+requires-python = ">=3.11"
+keywords = [
+  "mcp",
+  "model-context-protocol",
+  "ai-agents",
+  "memory",
+  "markdown",
+  "sqlite",
+  "fts5",
+  "obsidian",
+  "claude",
+  "cursor",
+  "local-first",
+  "portable-memory",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Text Processing :: Markup :: Markdown",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "mcp>=0.9.0,<2.0.0",
+  "typer>=0.12.0",
+  "pyyaml>=6.0",
+  "python-frontmatter>=1.1.0",
+  "watchdog>=4.0.0",
+  "rich>=13.7.0",
+  "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
+
+[project.scripts]
+all41n14lla = "all41n14lla.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/bludragon-ai/all41n14lla"
+Repository = "https://github.com/bludragon-ai/all41n14lla"
+Issues = "https://github.com/bludragon-ai/all41n14lla/issues"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Pre-existing gap fixed alongside the persona addition: templates/ had no
+# __init__.py and no package-data entry, so nothing under it (including the
+# starter-pack content) was actually bundled into the built wheel.
+all41n14lla = ["templates/*.md", "templates/starter-pack/**"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint.flake8-bugbear]
+# typer's idiomatic pattern puts Option()/Argument() calls in defaults; they
+# are evaluated once at import and are immutable in practice.
+extend-immutable-calls = ["typer.Option", "typer.Argument", "all41n14lla.cli._vault_option"]
+
+[tool.mypy]
+python_version = "3.11"
+
+[[tool.mypy.overrides]]
+module = ["frontmatter"]
+ignore_missing_imports = true

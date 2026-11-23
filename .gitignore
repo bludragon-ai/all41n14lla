@@ -1,0 +1,36 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+.venv/
+venv/
+env/
+ENV/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+.DS_Store
+*.swp
+
+# local agent instruction shims (machine-specific, not part of the package)
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+
+# verified-recall benchmark output (local-only; may contain excerpts of your own vault)
+/benchmarks/verified_recall_report.json
+
+# regenerable knowledge-graph output (leaks absolute /Users paths in cache)
+graphify-out/

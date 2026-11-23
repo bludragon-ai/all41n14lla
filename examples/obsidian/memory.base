@@ -1,0 +1,94 @@
+# all41n14lla memory store as an Obsidian Base.
+# Copy this file into the root of your store (the folder you pass as --path or
+# ALL41N14LLA_VAULT), open that folder as an Obsidian vault, then open memory.base.
+# Every column below is a frontmatter key the package writes (see
+# src/all41n14lla/engine/nodes.py, MemoryNode.to_frontmatter). Nothing here is
+# read back by the package; it is a view only.
+
+filters:
+  and:
+    - 'file.ext == "md"'
+    - or:
+        - 'file.inFolder("concepts")'
+        - 'file.inFolder("patterns")'
+        - 'file.inFolder("episodes")'
+        - 'file.inFolder("constraints")'
+
+formulas:
+  days_since_update: 'if(updated, (today() - date(updated)).days.round(), "")'
+
+properties:
+  type:
+    displayName: Type
+  tags:
+    displayName: Tags
+  updated:
+    displayName: Updated
+  created:
+    displayName: Created
+  decay:
+    displayName: Decay
+  stale:
+    displayName: Stale
+  source:
+    displayName: Source
+  formula.days_since_update:
+    displayName: "Days since update"
+
+views:
+  - type: table
+    name: All memories
+    order:
+      - file.name
+      - type
+      - tags
+      - updated
+      - formula.days_since_update
+      - decay
+      - stale
+      - source
+    sort:
+      - property: updated
+        direction: DESC
+
+  - type: table
+    name: By type
+    groupBy:
+      property: type
+      direction: ASC
+    order:
+      - file.name
+      - type
+      - tags
+      - updated
+    sort:
+      - property: updated
+        direction: DESC
+
+  - type: table
+    name: Constraints
+    filters:
+      and:
+        - 'type == "constraint"'
+    order:
+      - file.name
+      - tags
+      - updated
+    sort:
+      - property: updated
+        direction: DESC
+
+  - type: table
+    name: Stale
+    filters:
+      and:
+        - 'stale == true'
+    order:
+      - file.name
+      - type
+      - tags
+      - updated
+      - decay
+    sort:
+      - property: updated
+        direction: DESC

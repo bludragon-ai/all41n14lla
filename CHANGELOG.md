@@ -1,0 +1,114 @@
+# Changelog
+
+All notable changes to `all41n14lla` will be documented in this file.
+
+## 0.2.2 — 2026-11-19
+
+### Added
+- `examples/obsidian/memory.base`: open a memory store as an Obsidian vault and see every memory in a sortable table (All memories, By type, Constraints, Stale). A view only; the package never reads it. A test checks it parses and names only keys the package writes.
+- README: an "Open it in Obsidian" section.
+
+## 0.2.1 — 2026-11-17
+
+### Changed
+- Docs, tests, benchmarks and examples: sample data refreshed. No code behaviour changes: the only `src` edits are one docstring example and one comment.
+- README: an Architecture section (a code map of 0.2.0) and a status line that matches what is on PyPI.
+
+## 0.2.0 — 2026-10-15
+
+### Added
+- `all41n14lla reincarnate` — interactive first run. Eight plain questions; answers become the
+  assistant's first memories (constraints for the "never"s, concepts for the facts), the persona
+  comes online from the name/address/tone, and the birth is recorded as the first episode linked
+  to every skill. `--answers file.json` for a non-interactive rebirth. Nothing invented on an
+  empty answer; nothing read from disk. 11 tests. `--wire` wires every MCP client after the birth.
+- `all41n14lla devour <path>` — Predator. Analyzes ONE file or directory and proposes memories as
+  a numbered table; writes nothing until `--accept all` / `--accept 1,3` / `-i`. Deterministic
+  rules (markdown title+paragraph → concept, never/always lines → constraint, code docstring →
+  concept); skips binaries, generated dirs, files > 200 KB. Every written node carries `source`
+  + `source_hash`; an unchanged file is never proposed twice. The meal is recorded as an episode
+  linked to what it gained. 8 tests.
+- `all41n14lla evolve` — read-only tier report (Sage → Great Sage → Wisdom King Raphael by
+  episodes remembered) with what each tier may do. 3 tests.
+- Provenance fields `source` / `source_hash` on `MemoryNode`, round-tripped through frontmatter.
+- `all41n14lla forget --source <path|prefix|glob>` — verifiable erasure. Every forget (by id or
+  by source) now writes a receipt to `.all41n14lla/erasures/`: ids + content hashes, count, when,
+  and a re-scan proving zero remain. 5 tests.
+
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- Verified recall: TypeSafe backend (2026-10-08). `ALL41N14LLA_VERIFY_BACKEND=typesafe` sends every non-floor hit of a `recall(verify=True)` to TypeSafe Jev as one Noul question each, batched into a single `POST /v1/systemone`, and keeps hits whose probability of relevance is `>= ALL41N14LLA_VERIFY_THRESHOLD` (default 0.5). Kept hits carry `relevance`. Key from `TYPESAFE_API_KEY` or the macOS login keychain. Same failure contract as the ollama judge: any failure returns the unfiltered hits with `verified: false`, now with a one-line `verify_reason`. Default backend stays `ollama`; plain `httpx`, no new dependency. Tests mock all HTTP; none touch the network.
+- Type-aware retrieval: deterministic constraint floor (tag-overlap injection, exempt from the result limit, capped at 50 with an overflow flag), per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, 90-day floored pattern recency. New module: `all41n14lla.engine.retrieval`.
+- `doctor` constraint-floor diagnostics: floor status, untagged (floor-invisible) constraints, tag hotspots.
+- Constraint-recall benchmark (`benchmarks/constraint_recall.py`) + comparison column.
+- `all41n14lla wire` — detects installed MCP clients (Claude Code, Claude Desktop, Cursor, Gemini CLI, Codex CLI) and adds the server block to each config. Idempotent, conflict-aware, backs up modified configs, `--dry-run` previews, `--force` replaces a differing JSON entry. New module: `all41n14lla.wire`.
+- Python 3.14 in the CI matrix and trove classifiers.
+
+### Fixed
+- **Multi-word recall returned too few (or no) matches.** `_sanitize` first wrapped the whole query as one FTS5 phrase (adjacency-required), then quoted each term but joined them with FTS5's implicit AND (every term required in one note) — so a recall query whose words were spread across different notes (e.g. `recall "sqlite backup schedule"`) silently dropped relevant matches. A tool named `recall` is recall-oriented: terms are now quoted individually and joined with `OR`, so a note matching ANY term is a candidate and BM25 ranks notes matching more (and rarer) terms higher (the all-terms note still sorts top). Operators stay neutralized; single-term queries are unchanged. Affects both the CLI and the MCP server's `recall` tool.
+- CLI honors `ALL41N14LLA_VAULT` for default vault resolution, matching the MCP server.
+
+### Changed
+- Docs no longer hard-code test counts (they drifted three ways across two files); CI is the source of truth.
+- README install path is one command (`pipx install all41n14lla && all41n14lla init && all41n14lla wire`); from-source setup lives in CONTRIBUTING.md and uses version-agnostic `python3 -m venv`.
+
+## [0.1.0] - 2026-04-25
+
+First stable release. Drops the alpha tag — `pipx install all41n14lla` now works without the `--pre` flag.
+
+### Fixed
+- Pinned `httpx>=0.27,<1` in project dependencies. Without this pin, `pipx install --pip-args='--pre' all41n14lla` (the alpha install path) cascaded the `--pre` flag to every transitive dependency and pulled `httpx 1.0.dev3`, which removed `httpx.TransportError` from its top-level namespace and crashed `mcp` import via `httpx_sse`. Stable installs from `0.1.0` onward don't need `--pre`, but the pin also defends future alpha installs against the same trap.
+
+### Changed
+- Project graduates from alpha to stable. No API or behavior changes versus `0.1.0a2` other than the dependency pin above.
+
+## [0.1.0a2] - 2026-04-24
+
+Integrity-fix alpha. Closes the watchdog + pathways gaps from `0.1.0a1` so the docs match the implementation exactly.
+
+### Added
+- Watchdog observer runs inside `serve` — hand-edits to vault markdown files sync into the index live. New module: `all41n14lla.watcher`.
+- `remember episode ... --links a,b,c` increments pathways edge weights for each co-occurring id pair. New method: `Storage.increment_edges`.
+- `inspect <query_or_id>` CLI command wired to the engine (accepts either a node id prefix or a search phrase, renders node + top-10 edge neighbors).
+- `keywords` field in `pyproject.toml` for PyPI search discoverability; additional classifiers (`Intended Audience`, `Topic`, `Operating System`).
+- GitHub Actions CI: test matrix on Python 3.11 / 3.12 / 3.13 (Ubuntu), plus `ruff check` (soft fail for now). Trusted-publishing workflow for PyPI on tag push.
+- CI + PyPI + Python + License badges in README.
+- `CONTRIBUTING.md`, `.github/ISSUE_TEMPLATE/bug_report.yml`, `.github/ISSUE_TEMPLATE/feature_request.yml`, `.github/pull_request_template.md`.
+- Tests: `test_pathways.py` (4 tests), `test_watcher.py` (6 tests). Suite now runs 26 tests.
+
+### Changed
+- `Storage` imports `datetime` / `timezone` to stamp edge rows.
+- Documentation claims about live watchdog reconciliation and pathways auto-increment now match reality; no soft-walk needed.
+
+### Fixed
+- n/a (this release closes documented gaps rather than fixing regressions).
+
+## [0.1.0a1] - 2026-04-24
+
+First public alpha. Shipped to PyPI and GitHub Releases.
+
+### Added
+- Four node types: `concept`, `pattern`, `episode`, `constraint`. Each stored as a markdown file with YAML frontmatter in its own folder (`concepts/`, `patterns/`, `episodes/`, `constraints/`).
+- SQLite index with FTS5 virtual table over content + tags (Porter tokenizer, BM25 ranking).
+- Edges table for co-occurrence pathways (table only — auto-increment ships in 0.1.0a2).
+- MCP stdio server exposing five tools: `remember`, `recall`, `forget`, `inspect`, `consolidate`.
+- CLI entry point `all41n14lla` with commands `init`, `serve`, `doctor`, `remember`, `recall`, `forget`, `reconcile`, `version`. `inspect` and `consolidate` are stubs in this release.
+- Default vault path `~/.all41n14lla/` (hidden dotfile); configurable via `--path` on `init` or `ALL41N14LLA_VAULT` env var on `serve`.
+- Documentation: README, `docs/why.md`, `docs/architecture.md`, `docs/comparison.md`, `docs/savant-cognition.md`, `ORIGIN.md`.
+- 16 automated tests covering nodes, CLI, storage lifecycle, search, and MCP server smoke paths.
+
+### Known issues
+- `watchdog` library is a dependency but the live observer is not wired into `serve` yet (ships in `0.1.0a2`). Use `all41n14lla reconcile` after hand-editing files until then.
+- Pathways edges table exists but writes are not yet auto-incremented on `remember` calls. `consolidate` is stubbed.
+- No embeddings — retrieval is lexical only. Semantic recall lands in `v0.2`.
+- Tested on Python 3.13.13 on macOS arm64; other platforms via CI matrix as of `0.1.0a2`.
+
+[Unreleased]: https://github.com/bludragon-ai/all41n14lla/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/bludragon-ai/all41n14lla/releases/tag/v0.1.0
+[0.1.0a2]: https://github.com/bludragon-ai/all41n14lla/releases/tag/v0.1.0a2
+[0.1.0a1]: https://github.com/bludragon-ai/all41n14lla/releases/tag/v0.1.0a1
