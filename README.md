@@ -159,7 +159,7 @@ Two front doors share one engine. The CLI calls the engine directly; it does not
 | Watcher | `src/all41n14lla/watcher.py` | A `watchdog` observer started by `serve`. Upserts on create and modify, drops index rows on delete, both on move. Only `<vault>/<type-folder>/*.md` counts. |
 | Repetition guard | `src/all41n14lla/guard.py` | `RepetitionGuard`, behind the `guard_output` tool. Splits streamed text into sentence or line segments and stops at the first segment (12 or more normalized characters; shorter ones are never checked) whose similarity to an earlier one (the higher of a `difflib.SequenceMatcher` ratio and word overlap, over the last 150 characters by default) reaches the threshold (0.82 by default). |
 | Persona | `src/all41n14lla/persona.py` | Optional `PERSONA.md` in the vault, returned by the `identity` tool. |
-| Erasure | `src/all41n14lla/erase.py` | Deletes nodes and writes a JSON receipt to `<vault>/.all41n14lla/erasures/`. Called by CLI `forget`. |
+| Erasure | `src/all41n14lla/erase.py` | Deletes nodes and writes a JSON receipt to `<vault>/.all41n14lla/erasures/`. Called by CLI `forget` and the MCP `forget` tool. |
 | Ingest and setup | `devour.py`, `reincarnate.py`, `evolve.py`, `wire.py` (all in `src/all41n14lla/`) | CLI-only. `devour` proposes memories from one path and writes only what you accept. `wire` adds the server block to client configs. |
 | Redaction | `src/all41n14lla/redact.py` | PII masking for benchmark report excerpts (`benchmarks/verified_recall.py`). |
 
@@ -226,7 +226,7 @@ While `serve` is running, the watcher also sees the new file and upserts it agai
 
 - `consolidate` returns a stub status, and `engine/pathways.py` holds only a docstring. The `edges` table is written but nothing promotes patterns from it yet.
 - `increment_edges` pairs whatever ids are in `links`; it does not check that they are concepts.
-- The MCP `forget` tool deletes the file and index rows but writes no receipt. Receipts come from CLI `forget` via `erase.py`.
+- The MCP `forget` tool deletes by id only; erasing by `--source` is CLI-only. Both go through `erase.py` and write a receipt. If the node's file is already gone, only the index row is removed and no receipt is written.
 - `retrieve` computes `floor_overflow`, but MCP `recall` does not return it.
 - Edge weights live only in the index. `reconcile` does not rebuild `edges`, so deleting `index.db` loses the co-occurrence weights.
 - The watcher has no startup scan. Edits made while `serve` is not running reach the index through `all41n14lla reconcile`.

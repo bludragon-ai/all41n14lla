@@ -165,3 +165,16 @@ def test_symlink_staying_inside_root_reads_the_real_file_once(tmp_path):
     (root / "alias.md").symlink_to(root / "ok.md")
     a = analyze(root)
     assert [c.source for c in a.candidates] == ["ok.md"]
+
+
+def test_cli_devour_on_a_symlinked_file_exits_cleanly(tmp_path, vault):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.md").write_text("# Secret\n\nSECRETMARKER lives outside the devoured root.\n")
+    link = tmp_path / "link.md"
+    link.symlink_to(outside / "secret.md")
+    before = _files(vault)
+    result = CliRunner().invoke(app, ["devour", str(link), "--accept", "all", "--vault", str(vault)])
+    assert result.exception is None, result.output
+    assert "SECRETMARKER" not in result.output
+    assert _files(vault) == before

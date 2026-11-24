@@ -107,6 +107,20 @@ def test_forget_when_file_already_gone_clears_the_index_and_says_so(scratch_vaul
     assert recall(query="Vanished") == []
 
 
+def test_forget_refuses_a_file_it_cannot_read_as_the_node(scratch_vault: Path):
+    from all41n14lla.server import forget, remember
+
+    written = remember(type="concept", content="Corrupted on disk after it was indexed.")
+    path = Path(written["path"])
+    path.write_text("---\nnot: [valid\n---\nbroken front matter\n", encoding="utf-8")
+
+    result = forget(id=written["id"])
+    assert result["deleted"] is False and result["receipt"] is None
+    assert "nothing deleted" in result["reason"]
+    assert path.exists()
+    assert not (scratch_vault / ".all41n14lla" / "erasures").exists()
+
+
 def test_forget_reports_ambiguous_prefix(scratch_vault: Path):
     from all41n14lla.server import forget
 
