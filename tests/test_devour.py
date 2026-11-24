@@ -145,6 +145,7 @@ def test_directory_symlink_inside_root_is_not_followed_out(tmp_path):
     a = analyze(root)
     assert not _leaked(a, "SECRETMARKER")
     assert {c.source for c in a.candidates} == {"ok.md"}
+    assert a.files_skipped == 1  # the link is counted, never walked
 
 
 def test_symlinked_file_root_is_skipped_not_read(tmp_path):

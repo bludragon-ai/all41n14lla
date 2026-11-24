@@ -95,6 +95,33 @@ def test_forget_writes_an_erase_receipt_with_rescan(scratch_vault: Path):
     assert r["deleted"][0]["content_sha256"] == hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def test_two_forgets_in_the_same_second_keep_both_receipts(scratch_vault: Path, monkeypatch):
+    import json
+
+    import all41n14lla.erase as erase_mod
+    from all41n14lla.server import forget, remember
+
+    class _FrozenClock:
+        @staticmethod
+        def now(tz=None):
+            from datetime import datetime
+
+            return datetime(2026, 11, 24, 12, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(erase_mod, "datetime", _FrozenClock)
+    first = remember(type="concept", content="First memory erased in this second.")
+    second = remember(type="concept", content="Second memory erased in the same second.")
+
+    r1 = forget(id=first["id"])
+    r2 = forget(id=second["id"])
+
+    assert r1["receipt"] != r2["receipt"]
+    receipts = sorted((scratch_vault / ".all41n14lla" / "erasures").glob("*.json"))
+    assert len(receipts) == 2
+    vouched = {json.loads(p.read_text())["deleted"][0]["id"] for p in receipts}
+    assert vouched == {first["id"], second["id"]}
+
+
 def test_forget_when_file_already_gone_clears_the_index_and_says_so(scratch_vault: Path):
     from all41n14lla.server import forget, recall, remember
 

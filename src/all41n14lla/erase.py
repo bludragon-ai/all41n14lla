@@ -81,7 +81,16 @@ def erase(vault: Path, nodes: list[MemoryNode], source: str | None = None) -> Re
     out = vault / ".all41n14lla" / "erasures"
     out.mkdir(parents=True, exist_ok=True)
     stamp = receipt.when.replace(":", "").replace("+00:00", "Z")
-    path = out / f"{stamp}-{(source or 'id').replace('/', '_').replace('*', 'x')[:40]}.json"
-    receipt.path = str(path)
-    path.write_text(json.dumps(asdict(receipt), indent=2), encoding="utf-8")
-    return receipt
+    base = f"{stamp}-{(source or 'id').replace('/', '_').replace('*', 'x')[:40]}"
+    # A receipt is proof; never overwrite one. Two erasures in the same second (easy through
+    # the MCP tool) get -2, -3, ... instead of the second silently replacing the first.
+    for attempt in range(1, 10_000):
+        path = out / (f"{base}.json" if attempt == 1 else f"{base}-{attempt}.json")
+        receipt.path = str(path)
+        try:
+            with path.open("x", encoding="utf-8") as fh:
+                fh.write(json.dumps(asdict(receipt), indent=2))
+        except FileExistsError:
+            continue
+        return receipt
+    raise RuntimeError(f"could not find a free receipt name for {base} in {out}")
