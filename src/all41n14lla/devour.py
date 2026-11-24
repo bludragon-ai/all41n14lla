@@ -68,16 +68,42 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _iter_files(root: Path):
+def _iter_files(root: Path, on_skip: Callable[[Path], None] | None = None):
+    """Yield the regular files under *root*, never leaving it.
+
+    A symlink is never followed: a link inside the root can point anywhere on disk, and the
+    consent given was for the root, not for whatever it links to. Links are reported through
+    *on_skip* (once per link) so the caller can count them. As a second gate, every yielded
+    path must still resolve to somewhere inside the resolved root.
+    """
+    if root.is_symlink():
+        if on_skip:
+            on_skip(root)
+        return
     if root.is_file():
         yield root
         return
+    real_root = root.resolve()
     for p in sorted(root.rglob("*")):
-        if any(part in SKIP_DIRS or part.startswith(".") and part not in {".", ".."} for part in p.relative_to(root).parts[:-1]):
+        parents = p.relative_to(root).parts[:-1]
+        if any(part in SKIP_DIRS or part.startswith(".") and part not in {".", ".."} for part in parents):
+            continue
+        ancestor = root
+        through_link = False
+        for part in parents:
+            ancestor = ancestor / part
+            if ancestor.is_symlink():
+                through_link = True  # the link itself was already reported
+                break
+        if through_link:
             continue
         if p.name.startswith(".") and p.is_file():
             continue
-        if p.is_file():
+        if p.is_symlink():
+            if on_skip:
+                on_skip(p)
+            continue
+        if p.is_file() and p.resolve().is_relative_to(real_root):
             yield p
 
 
@@ -129,13 +155,25 @@ def _relative(root: Path, p: Path) -> str:
 
 
 def analyze(root: Path, existing_hashes: set[str] | None = None, max_files: int = MAX_FILES) -> Analysis:
-    """Read one path and propose memories. Reads text only; writes nothing."""
-    root = root.expanduser().resolve()
+    """Read one path and propose memories. Reads text only; writes nothing.
+
+    Stays inside *root*: symlinks beneath it are counted as skipped, never read. A directory
+    root named through a link is resolved and walked (the caller chose it); a FILE root that
+    is itself a link is skipped rather than read, so one named file cannot stand in for another.
+    """
+    given = root.expanduser()
+    root = given.resolve()
     if not root.exists():
         raise FileNotFoundError(root)
     existing_hashes = existing_hashes or set()
+    if given.is_symlink() and root.is_file():
+        return Analysis(root=given.absolute(), files_skipped=1)
     a = Analysis(root=root)
-    for p in _iter_files(root):
+
+    def _count_skip(_: Path) -> None:
+        a.files_skipped += 1
+
+    for p in _iter_files(root, _count_skip):
         if a.files_read >= max_files:
             a.truncated = True
             break

@@ -98,12 +98,15 @@ class RepetitionGuard:
             repeated_segment=segment.strip(),
             prior_segment=best_prior.strip(),
         )
+        # Log only where and how strongly it matched. The repeated text is model or user
+        # content: it stays in ``self.match`` / ``result()`` for the caller, never in logs.
         logger.warning(
-            "Repetition guard stopped output at character %d (similarity %.3f): %r repeated %r",
+            "Repetition guard stopped output at character %d "
+            "(similarity %.3f, repeated %d chars, prior %d chars)",
             self.match.position,
             self.match.similarity,
-            self.match.repeated_segment,
-            self.match.prior_segment,
+            len(self.match.repeated_segment),
+            len(self.match.prior_segment),
         )
         return True
 

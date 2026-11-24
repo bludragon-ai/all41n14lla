@@ -69,6 +69,44 @@ def test_forget_removes_file_and_index_row(scratch_vault: Path):
     assert hits == []
 
 
+def test_forget_writes_an_erase_receipt_with_rescan(scratch_vault: Path):
+    import hashlib
+    import json
+
+    from all41n14lla.server import forget, remember
+
+    content = "A receipt must vouch for this without keeping it."
+    written = remember(type="concept", content=content)
+    erasures = scratch_vault / ".all41n14lla" / "erasures"
+    assert not erasures.exists()
+
+    result = forget(id=written["id"][:8])
+    assert result["deleted"] is True and result["id"] == written["id"]
+    assert result["remaining_after_rescan"] == 0
+
+    receipts = list(erasures.glob("*.json"))
+    assert len(receipts) == 1
+    assert Path(result["receipt"]) == receipts[0]
+    raw = receipts[0].read_text()
+    assert content not in raw
+    r = json.loads(raw)
+    assert r["source"] is None and r["count"] == 1 and r["remaining_after_rescan"] == 0
+    assert r["deleted"][0]["id"] == written["id"]
+    assert r["deleted"][0]["content_sha256"] == hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def test_forget_when_file_already_gone_clears_the_index_and_says_so(scratch_vault: Path):
+    from all41n14lla.server import forget, recall, remember
+
+    written = remember(type="episode", content="Vanished from disk before the forget call.")
+    Path(written["path"]).unlink()
+
+    result = forget(id=written["id"])
+    assert result["deleted"] is True and result["id"] == written["id"]
+    assert result["receipt"] is None and "already gone" in result["reason"]
+    assert recall(query="Vanished") == []
+
+
 def test_forget_reports_ambiguous_prefix(scratch_vault: Path):
     from all41n14lla.server import forget
 

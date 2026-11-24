@@ -211,43 +211,61 @@ def recall(
 
 @mcp.tool()
 def forget(id: str) -> dict:
-    """Permanently delete a memory by id.
+    """Permanently delete a memory by id, and leave an erase receipt.
 
     Use this when the user explicitly asks to remove a specific remembered
-    item. Deletes both the markdown file on disk and the index row. Accepts a
-    full UUID or an unambiguous prefix (first 8+ characters).
+    item. Deletes both the markdown file on disk and the index row, through the
+    same path as ``all41n14lla forget``: a JSON receipt is written under
+    ``<vault>/.all41n14lla/erasures/`` (id, type, and a hash of the content,
+    never the content itself) and the vault is re-scanned to confirm the node
+    is gone. Accepts a full UUID or an unambiguous prefix (first 8+ characters).
 
-    Returns ``{deleted: bool, id: str | null, reason: str | null}``. If the
-    prefix matches multiple nodes, nothing is deleted and ``reason`` explains.
+    Returns ``{deleted: bool, id: str | null, reason: str | null,
+    receipt: str | null, remaining_after_rescan: int | null}``. If the prefix
+    matches multiple nodes, nothing is deleted and ``reason`` explains. If the
+    file was already gone from disk, only the index row is removed: there is
+    no content left to vouch for, so ``receipt`` is null and ``reason`` says so.
     """
+    from all41n14lla.erase import erase
+
+    def _no(reason: str) -> dict:
+        return {"deleted": False, "id": None, "reason": reason,
+                "receipt": None, "remaining_after_rescan": None}
+
     vault = _require_vault()
     ident = (id or "").strip()
     if len(ident) < 8:
         # Audit sweep 2026-08-04: a blank/short id + LIKE '%' would match EVERY
         # node — enforce the docstring's own "first 8+ characters" contract.
-        return {"deleted": False, "id": None,
-                "reason": "id must be at least the first 8 characters of the node id"}
+        return _no("id must be at least the first 8 characters of the node id")
     like = ident.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     with Storage(default_db_path(vault)) as storage:
         rows = storage.conn.execute(
             "SELECT id, path FROM nodes WHERE id LIKE ? ESCAPE '\\'", (f"{like}%",)
         ).fetchall()
         if not rows:
-            return {"deleted": False, "id": None, "reason": f"no node matches '{id}'"}
+            return _no(f"no node matches '{id}'")
         if len(rows) > 1:
-            return {
-                "deleted": False,
-                "id": None,
-                "reason": (
-                    f"ambiguous — '{id}' matches {len(rows)} nodes; use the full id"
-                ),
-            }
+            return _no(f"ambiguous — '{id}' matches {len(rows)} nodes; use the full id")
         target_id = rows[0]["id"]
         target_path = Path(rows[0]["path"])
-        storage.delete_node(target_id)
+    node = None
     if target_path.exists():
-        target_path.unlink()
-    return {"deleted": True, "id": target_id, "reason": None}
+        try:
+            node = MemoryNode.from_file(target_path)
+        except Exception:  # noqa: BLE001 — an unreadable file must not turn a forget into a silent delete
+            return _no(f"{target_path.name} could not be read as a memory node; nothing deleted")
+        if node.id != target_id:
+            return _no(f"{target_path.name} no longer holds node {target_id}; nothing deleted")
+    if node is None:
+        with Storage(default_db_path(vault)) as storage:
+            storage.delete_node(target_id)
+        return {"deleted": True, "id": target_id,
+                "reason": "file was already gone; index row removed, no receipt written",
+                "receipt": None, "remaining_after_rescan": None}
+    receipt = erase(vault, [node], source=None)
+    return {"deleted": True, "id": target_id, "reason": None,
+            "receipt": receipt.path, "remaining_after_rescan": receipt.remaining_after_rescan}
 
 
 @mcp.tool()

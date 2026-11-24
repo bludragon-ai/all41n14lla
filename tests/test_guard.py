@@ -21,6 +21,29 @@ def test_near_duplicate_list_fixture_is_cut(caplog) -> None:
     assert "Repetition guard stopped output" in caplog.text
 
 
+def test_warning_log_carries_no_raw_text(caplog) -> None:
+    text = FIXTURE.read_text()
+    guard = RepetitionGuard()
+
+    with caplog.at_level(logging.DEBUG):
+        "".join(guard.feed(_small_chunks(text, 17)))
+
+    assert guard.loop_detected and guard.match is not None
+    records = [r for r in caplog.records if r.name == "all41n14lla.guard"]
+    assert len(records) == 1
+    logged = records[0].getMessage()
+    assert "Daily Grind" not in logged
+    assert not any(isinstance(arg, str) for arg in records[0].args)
+    assert str(guard.match.position) in logged
+    assert f"{guard.match.similarity:.3f}" in logged
+    assert str(len(guard.match.repeated_segment)) in logged
+    assert str(len(guard.match.prior_segment)) in logged
+    # The raw segments stay available to the caller, in the returned result only.
+    match = guard.result()["match"]
+    assert match["repeated_segment"] == "1. The Daily Grind"
+    assert "Daily Grind" in match["prior_segment"]
+
+
 def test_genuinely_non_repetitive_long_response_is_not_cut() -> None:
     text = " ".join(
         f"Section {index} describes a distinct event involving subject {index * 17} in place {index * 31}."

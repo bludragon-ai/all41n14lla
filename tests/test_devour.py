@@ -114,3 +114,54 @@ def test_max_files_truncates(prey):
 def test_missing_path_is_an_error(vault):
     result = CliRunner().invoke(app, ["devour", "/no/such/place", "--vault", str(vault)])
     assert result.exit_code == 1
+
+
+def _leaked(a, marker: str) -> bool:
+    return any(marker in c.content or marker in c.source for c in a.candidates)
+
+
+def test_file_symlink_inside_root_is_not_followed_out(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.md").write_text("# Secret\n\nSECRETMARKER lives outside the devoured root.\n")
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "ok.md").write_text("# Fine\n\nThis one is inside the root and may be read.\n")
+    (root / "link.md").symlink_to(outside / "secret.md")
+    a = analyze(root)
+    assert not _leaked(a, "SECRETMARKER")
+    assert {c.source for c in a.candidates} == {"ok.md"}
+    assert a.files_skipped == 1
+
+
+def test_directory_symlink_inside_root_is_not_followed_out(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.md").write_text("# Secret\n\nSECRETMARKER lives outside the devoured root.\n")
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "ok.md").write_text("# Fine\n\nThis one is inside the root and may be read.\n")
+    (root / "linked").symlink_to(outside, target_is_directory=True)
+    a = analyze(root)
+    assert not _leaked(a, "SECRETMARKER")
+    assert {c.source for c in a.candidates} == {"ok.md"}
+
+
+def test_symlinked_file_root_is_skipped_not_read(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.md").write_text("# Secret\n\nSECRETMARKER lives outside the devoured root.\n")
+    link = tmp_path / "link.md"
+    link.symlink_to(outside / "secret.md")
+    a = analyze(link)
+    assert a.candidates == [] and a.files_read == 0
+    assert a.files_skipped == 1
+
+
+def test_symlink_staying_inside_root_reads_the_real_file_once(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "ok.md").write_text("# Fine\n\nThis one is inside the root and may be read.\n")
+    (root / "alias.md").symlink_to(root / "ok.md")
+    a = analyze(root)
+    assert [c.source for c in a.candidates] == ["ok.md"]
