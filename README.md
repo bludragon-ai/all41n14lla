@@ -10,7 +10,7 @@ Portable memory for AI agents. Markdown on your disk. Speaks MCP.
 [![Python](https://img.shields.io/pypi/pyversions/all41n14lla.svg)](https://pypi.org/project/all41n14lla/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Status:** `v0.2.1` (on PyPI; 0.2.1 is a docs and examples patch over 0.2.0). The 0.2.0 release adds type-aware retrieval, `wire`, `reincarnate`, `devour`, `evolve`, an optional persona/`identity` layer, and a `guard_output` repetition guard on top of 0.1.0. The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
+> **Status:** `v0.2.2` (on PyPI; 0.2.1 and 0.2.2 are docs, examples and fix releases over 0.2.0). The 0.2.0 release adds type-aware retrieval, `wire`, `reincarnate`, `devour`, `evolve`, an optional persona/`identity` layer, and a `guard_output` repetition guard on top of 0.1.0. The engine is real: SQLite + FTS5 index, MCP stdio server, four-type storage, live watchdog reconciliation, deterministic constraint floor on recall. The full pytest suite passes in CI on Python 3.11–3.14 (no hard-coded count here — counts drift; CI is the source of truth). Install from PyPI below.
 
 ## The problem
 
@@ -22,43 +22,7 @@ Memory should live where you can read it, back it up, grep it, diff it in git, a
 
 `all41n14lla` stores memories as markdown files on your disk, indexes them locally with SQLite + FTS5, and exposes them over MCP stdio. Claude Code, Claude Desktop, Cursor, and anything else that speaks MCP gets `remember`, `recall`, `forget`, `inspect`, and `consolidate` for free. No SDK lock-in. No vendor cloud. No round trip. Your vault is yours.
 
-**Where it's going:** memory built like a brain — the literal ledger you have today (exact, auditable), plus an associative hemisphere (v0.2) that recalls by meaning, the two cross-auditing each other so the memory notices when it disagrees with itself. Design: [docs/TWO-BRAINS.md](docs/TWO-BRAINS.md) · Elevator answers: [docs/PITCH.md](docs/PITCH.md)
-
-## Reincarnation — the setup
-
-In the first episode of *That Time I Got Reincarnated as a Slime*, the protagonist dies and every
-stray last thought is confirmed back to him as a skill: *"I don't want to feel pain"* becomes
-`[Resist Pain]`; *"I want to be wise"* becomes `[Great Sage]`. He wakes in a dark cave with those
-skills and a voice that answers when asked.
-
-That is what a first run should be. Not "enter your name" — *what do you keep re-explaining, what
-must it never do, what are you trying to make happen.* `all41n14lla reincarnate` asks eight plain
-questions. Each answer becomes a memory the assistant is born with: the "never"s become
-**constraints** (they never decay and are always surfaced when relevant), the facts become
-**concepts**, and the name you give it brings the persona online.
-
-```
-$ all41n14lla reincarnate
-《Notice.》 Vital signs lost. Beginning reincarnation.
-《Confirmed.》 Unique skill [Great Sage] acquired. It answers to Aster.
-《Confirmed.》 Knowledge [Persistent Memory] acquired.
-《Confirmed.》 Skill [Resist Outbound] acquired.
-《Confirmed.》 Skill [Resist Deletion] acquired.
-《Confirmed.》 Knowledge [North Star] acquired.
-《Confirmed.》 Skill [Working Shape] acquired.
-《Confirmed.》 Extra skill [Predator] available. Nothing is devoured without consent.
-《Report.》 You wake in a cave. It is dark. Aster is online.
-Vault: ~/.all41n14lla · 6 memories. Next: `all41n14lla wire` connects Aster to every AI on this machine.
-```
-
-Three promises, each one a test in `tests/test_reincarnate.py`:
-
-- **Nothing is invented.** An unanswered question yields no memory. The transcript says *skipped, not invented*.
-- **Nothing is read from your disk.** Reincarnation writes only what you typed. Ingesting your files is a separate, consent-scoped act.
-- **Every line is backed by a file** you can open: one markdown file per skill, plus the birth itself as the first episode, linked to all of them.
-
-Non-interactive: `all41n14lla reincarnate --answers answers.json` (a JSON object keyed by
-`reexplain`, `never_without_asking`, `never_touch`, `north_star`, `wears_out`, `address`, `tone`, `name`).
+**Where it's going:** memory built like a brain — the literal ledger you have today (exact, auditable), plus a planned, opt-in associative index that recalls by meaning (planned, not built yet), the two cross-auditing each other so the memory notices when it disagrees with itself. Design: [docs/TWO-BRAINS.md](docs/TWO-BRAINS.md) · Elevator answers: [docs/PITCH.md](docs/PITCH.md)
 
 ## Predator — devour a path, gain what it knows
 
@@ -277,6 +241,42 @@ The default vault is `~/.all41n14lla/` — a hidden per-user dotfile. Pass `--pa
 
 Other commands: `forget <id>`, `reconcile` (rebuild the index from disk), `inspect <query>` (node details + co-occurrence neighbors), `consolidate` (stub, lands in v0.2), `wire` (auto-configure MCP clients), `version`, `serve`.
 
+## Reincarnation — the setup
+
+In the first episode of *That Time I Got Reincarnated as a Slime*, the protagonist dies and every
+stray last thought is confirmed back to him as a skill: *"I don't want to feel pain"* becomes
+`[Resist Pain]`; *"I want to be wise"* becomes `[Great Sage]`. He wakes in a dark cave with those
+skills and a voice that answers when asked.
+
+That is what a first run should be. Not "enter your name" — *what do you keep re-explaining, what
+must it never do, what are you trying to make happen.* `all41n14lla reincarnate` asks eight plain
+questions. Each answer becomes a memory the assistant is born with: the "never"s become
+**constraints** (they never decay and are always surfaced when relevant), the facts become
+**concepts**, and the name you give it brings the persona online.
+
+```
+$ all41n14lla reincarnate
+《Notice.》 Vital signs lost. Beginning reincarnation.
+《Confirmed.》 Unique skill [Great Sage] acquired. It answers to Aster.
+《Confirmed.》 Knowledge [Persistent Memory] acquired.
+《Confirmed.》 Skill [Resist Outbound] acquired.
+《Confirmed.》 Skill [Resist Deletion] acquired.
+《Confirmed.》 Knowledge [North Star] acquired.
+《Confirmed.》 Skill [Working Shape] acquired.
+《Confirmed.》 Extra skill [Predator] available. Nothing is devoured without consent.
+《Report.》 You wake in a cave. It is dark. Aster is online.
+Vault: ~/.all41n14lla · 6 memories. Next: `all41n14lla wire` connects Aster to every AI on this machine.
+```
+
+Three promises, each one a test in `tests/test_reincarnate.py`:
+
+- **Nothing is invented.** An unanswered question yields no memory. The transcript says *skipped, not invented*.
+- **Nothing is read from your disk.** Reincarnation writes only what you typed. Ingesting your files is a separate, consent-scoped act.
+- **Every line is backed by a file** you can open: one markdown file per skill, plus the birth itself as the first episode, linked to all of them.
+
+Non-interactive: `all41n14lla reincarnate --answers answers.json` (a JSON object keyed by
+`reexplain`, `never_without_asking`, `never_touch`, `north_star`, `wears_out`, `address`, `tone`, `name`).
+
 ## Open it in Obsidian
 
 The store is plain markdown with YAML frontmatter, so [Obsidian](https://obsidian.md) opens it as is. The core Bases plugin turns it into a sortable table, with no plugin from this package.
@@ -383,7 +383,8 @@ Read the full comparison in [docs/comparison.md](docs/comparison.md).
 - **v0.1 (shipped)** — four node types, markdown on disk, SQLite + FTS5 index, MCP stdio server, watchdog reconciliation, CLI (`init`, `serve`, `doctor`, `remember`, `recall`, `forget`, `reconcile`, `version`). Lexical search only.
 - **v0.2 (shipped, 0.2.0 on PyPI)** — type-aware retrieval: the deterministic constraint floor, per-type rescoring with tag-overlap bonus, 30-day-half-life episode decay, `doctor` floor diagnostics. Pattern promotion (`consolidate`) remains a stub — honestly: the co-occurrence signal it needs (the `edges` table) only fills when episodes carry explicit `links`, and a body-mention extractor does not exist yet.
 - **v0.3** — pattern promotion over a real co-occurrence signal + tag-scoped recall (`tags=[...]` filter) for multi-team shared-memory use.
-- **Explicitly not planned** — embedding/vector recall as a hard dependency (see [docs/comparison.md](docs/comparison.md)); may appear later as an off-by-default opt-in. No Obsidian plugin, graph view, or bidirectional-edit subsystem — the vault is plain markdown and already opens anywhere.
+- **Planned, opt-in only** — recall by meaning (embeddings), off by default and never a hard dependency; the markdown files stay the source of truth (design: [docs/TWO-BRAINS.md](docs/TWO-BRAINS.md); trade-offs: [docs/comparison.md](docs/comparison.md)).
+- **Explicitly not planned** — an Obsidian plugin, graph view, or bidirectional-edit subsystem — the vault is plain markdown and already opens anywhere.
 
 No dates. Ships when it ships.
 

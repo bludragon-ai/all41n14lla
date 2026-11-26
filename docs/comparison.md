@@ -14,7 +14,7 @@ Honest look at `all41n14lla` vs. the other MCP-memory tools worth naming. Every 
 
 ## Notes per tool
 
-**all41n14lla.** Markdown on disk is the source of truth. SQLite with FTS5 is just an index. Four fixed node types, each with its own ranking policy; constraints whose tags overlap the query ride a separate, uncapped code path and are never silently dropped from a recall — deterministic context injection, not a ranking (see the benchmark below). Weakness: no embeddings (deliberate), lexical all-terms (AND) search for non-constraints. No cloud sync. No web UI.
+**all41n14lla.** Markdown on disk is the source of truth. SQLite with FTS5 is just an index. Four fixed node types, each with its own ranking policy; constraints whose tags overlap the query ride a separate, uncapped code path and are never silently dropped from a recall — deterministic context injection, not a ranking (see the benchmark below). Weakness: no embeddings yet (planned as an opt-in, never required), keyword search for non-constraints (multi-word queries use OR, ranked by BM25). No cloud sync. No web UI.
 
 **Basic Memory.** The closest philosophical neighbor. Also markdown-first, also MCP-native, also local-first. Adds semantic search via FastEmbed, which `all41n14lla` does not. Uses observations + relations rather than fixed node types. AGPL-3.0 license is more restrictive than MIT and may matter for commercial consumers.
 
@@ -57,6 +57,6 @@ Reproduce it:
 
 ## When to use which
 
-- **Use `all41n14lla`** if you want to open your memories in Obsidian, edit them in vim, diff them in git, and have constraints that are guaranteed to surface on every relevant recall. You are fine with keyword search in v0.1.
+- **Use `all41n14lla`** if you want to open your memories in Obsidian, edit them in vim, diff them in git, and have constraints that are guaranteed to surface on every relevant recall. You are fine with keyword search (BM25) for now.
 - **Use Basic Memory** if you want the same markdown-first posture plus semantic search today, and the AGPL license is acceptable.
 - **Use MemPalace** if your bottleneck is recall quality on long conversation histories and you are happy with a vector-store-backed palace metaphor instead of plain files.
