@@ -35,19 +35,25 @@ plus 50 noise episodes that talk the way standups actually talk (the query
 phrasing appears verbatim in the noise). In 4 of 20 scenarios the rule's own
 text also contains the query phrase, so plain BM25 gets honest lexical chances.
 
-Measured (seed 41, reproducible):
+Measured 2026-11-26 on 0.2.2 (seed 41, reproducible):
 
-| Retrieval                              | constraint recall@5 |
-| -------------------------------------- | ------------------- |
-| pure BM25 phrase match (v0.1 behavior) | **1/20 (5%)**       |
-| deterministic constraint floor         | **20/20 (100%)**    |
+| Retrieval                                     | constraint recall@5 |
+| --------------------------------------------- | ------------------- |
+| keyword search alone (`engine.search`, BM25)  | **3/20 (15%)**      |
+| deterministic constraint floor                | **20/20 (100%)**    |
+
+The baseline used to measure 1/20 (5%), when keyword search required the whole
+query as one phrase. Search now quotes each term and joins them with `OR`
+(CHANGELOG, "Multi-word recall returned too few"), which gives BM25 a few more
+lexical chances. The floor did not change.
 
 The floor's 100% is *by construction* — every scenario's rule is tagged and
 every query overlaps those tags, so the separate code path cannot miss. That
 is the claim, exactly: deterministic, disclosed precondition, no ranking
-involved. The baseline's 5% is *measured*, not invented — even the four rules
-containing the query phrase mostly drowned, because fifty noise episodes
-contain it too and a top-5 cutoff does what cutoffs do.
+involved. The baseline's 15% is *measured*, not invented — of the four rules
+containing the query phrase, two still drowned, because fifty noise episodes
+contain it too and a top-5 cutoff does what cutoffs do. The third baseline hit
+(`send the email batch`) is a rule that shares a single word with the query.
 
 Reproduce it:
 
